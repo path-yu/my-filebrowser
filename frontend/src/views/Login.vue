@@ -1,7 +1,7 @@
 <template>
   <div id="login" :class="{ recaptcha: recaptcha }">
     <form @submit="submit">
-      <img :src="logoURL" alt="文件管理系统" />
+      <LazyImage eager :src="logoURL" alt="文件管理系统" class="login-logo" />
       <h1>{{ name }}</h1>
       <p v-if="reason != null" class="logout-message">
         {{ t(`login.logout_reasons.${reason}`) }}
@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { StatusError } from "@/api/utils";
 import * as auth from "@/utils/auth";
+import LazyImage from "@/components/files/LazyImage.vue";
 import {
   name,
   logoURL,

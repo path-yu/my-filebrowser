@@ -10,13 +10,33 @@
     @mouseup="mouseUp"
     @wheel="wheelMove"
   >
-    <img class="image-ex-img image-ex-img-center" ref="imgex" @load="onLoad" />
+    <!--
+      LazyImage (eager) wraps the real <img> and gives us:
+       * loading spinner while bytes arrive
+       * inline error placeholder (with retry) on broken URLs
+       * raw <img> exposed as .imgEl (still supports UTIF decode,
+         transform translate/scale, setCenter left/top assignment).
+      We pass the original image-ex-* positioning classes through to
+      the inner <img> via the usual class binding (LazyImage forwards
+      anything in attrs onto <img>, including `class`), so the
+      container-level drag / pinch / wheel zoom logic continues to work
+      with zero semantic change.
+    -->
+    <LazyImage
+      ref="lazyRef"
+      :src="src"
+      eager
+      fill
+      :class="['image-ex-img', imageLoaded ? 'image-ex-img-ready' : 'image-ex-img-center']"
+      @load="onLoad"
+    />
   </div>
 </template>
 <script setup lang="ts">
 import { throttle } from "lodash-es";
 import UTIF from "utif";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import LazyImage from "@/components/files/LazyImage.vue";
 
 interface IProps {
   src: string;
@@ -50,13 +70,24 @@ const position = ref<{
 const maxScale = ref<number>(4);
 const minScale = ref<number>(0.25);
 
-// Refs
-const imgex = ref<HTMLImageElement | null>(null);
+// Refs: lazyRef -> exposes { imgEl, reload() }; container stays the same.
+const lazyRef = ref<InstanceType<typeof LazyImage> | null>(null);
 const container = ref<HTMLDivElement | null>(null);
 
+/** Get the raw HTMLImageElement held inside LazyImage (for DOM-level ops). */
+const imgEl = (): HTMLImageElement | null => lazyRef.value?.imgEl ?? null;
+
 onMounted(() => {
-  if (!decodeUTIF() && imgex.value !== null) {
-    imgex.value.src = props.src;
+  // UTIF path: if we have a TIFF-family URL, assign to <img>.src is handled
+  // by decodeUTIF's XHR path directly (same as original code — it sets
+  // imgex = UTIF._imgs[i] then triggers UTIF._imgLoaded).
+  if (!decodeUTIF()) {
+    // Non-TIFF path: since LazyImage eager=true already assigns props.src,
+    // we only need to explicitly re-assign if eager somehow hasn't loaded yet.
+    const el = imgEl();
+    if (el && el.getAttribute("src") !== props.src) {
+      el.src = props.src;
+    }
   }
 
   props.classList.forEach((className) =>
@@ -86,8 +117,15 @@ onBeforeUnmount(() => {
 watch(
   () => props.src,
   () => {
-    if (!decodeUTIF() && imgex.value !== null) {
-      imgex.value.src = props.src;
+    if (!decodeUTIF()) {
+      const el = imgEl();
+      // Reset positioning classes so spinner shows correctly on new src.
+      imageLoaded.value = false;
+      if (el) {
+        el.classList.remove("image-ex-img-ready");
+        el.classList.add("image-ex-img-center");
+        el.src = props.src;
+      }
     }
 
     scale.value = 1;
@@ -97,10 +135,12 @@ watch(
 );
 
 // Modified from UTIF.replaceIMG
+// NOTE: UTIF._imgs expects raw HTMLImageElements; we pass imgEl() which is
+// exactly the same DOM node that the original code referenced.
 const decodeUTIF = () => {
   const sufs = ["tif", "tiff", "dng", "cr2", "nef"];
   if (document?.location?.pathname === undefined) {
-    return;
+    return false;
   }
   const suff =
     document.location.pathname.split(".")?.pop()?.toLowerCase() ?? "";
@@ -108,7 +148,9 @@ const decodeUTIF = () => {
   if (sufs.indexOf(suff) == -1) return false;
   const xhr = new XMLHttpRequest();
   UTIF._xhrs.push(xhr);
-  UTIF._imgs.push(imgex.value);
+  const rawImg = imgEl();
+  if (!rawImg) return false;
+  UTIF._imgs.push(rawImg);
   xhr.open("GET", props.src);
   xhr.responseType = "arraybuffer";
   xhr.onload = UTIF._imgLoaded;
@@ -119,23 +161,24 @@ const decodeUTIF = () => {
 const onLoad = () => {
   imageLoaded.value = true;
 
-  if (imgex.value === null) {
+  const el = imgEl();
+  if (el === null) {
     return;
   }
 
-  imgex.value.classList.remove("image-ex-img-center");
+  el.classList.remove("image-ex-img-center");
   setCenter();
-  imgex.value.classList.add("image-ex-img-ready");
+  el.classList.add("image-ex-img-ready");
 
   document.addEventListener("mouseup", onMouseUp);
 
-  let realSize = imgex.value.naturalWidth;
-  let displaySize = imgex.value.offsetWidth;
+  let realSize = el.naturalWidth;
+  let displaySize = el.offsetWidth;
 
   // Image is in portrait orientation
-  if (imgex.value.naturalHeight > imgex.value.naturalWidth) {
-    realSize = imgex.value.naturalHeight;
-    displaySize = imgex.value.offsetHeight;
+  if (el.naturalHeight > el.naturalWidth) {
+    realSize = el.naturalHeight;
+    displaySize = el.offsetHeight;
   }
 
   // Scale needed to display the image on full size
@@ -157,19 +200,19 @@ const onResize = throttle(function () {
 }, 100);
 
 const setCenter = () => {
-  if (container.value === null || imgex.value === null) {
-    return;
-  }
+  if (container.value === null) return;
+  const el = imgEl();
+  if (el === null) return;
 
   position.value.center.x = Math.floor(
-    (container.value.clientWidth - imgex.value.clientWidth) / 2
+    (container.value.clientWidth - el.clientWidth) / 2
   );
   position.value.center.y = Math.floor(
-    (container.value.clientHeight - imgex.value.clientHeight) / 2
+    (container.value.clientHeight - el.clientHeight) / 2
   );
 
-  imgex.value.style.left = position.value.center.x + "px";
-  imgex.value.style.top = position.value.center.y + "px";
+  el.style.left = position.value.center.x + "px";
+  el.style.top = position.value.center.y + "px";
 };
 
 const mousedownStart = (event: MouseEvent) => {
@@ -231,10 +274,11 @@ const touchMove = (event: TouchEvent) => {
     lastY.value = event.targetTouches[0].pageY;
     return;
   }
-  if (imgex.value === null) {
+  const el = imgEl();
+  if (el === null) {
     return;
   }
-  const step = imgex.value.width / 5;
+  const step = el.width / 5;
   if (event.targetTouches.length === 2) {
     moveDisabled.value = true;
     if (disabledTimer.value) clearTimeout(disabledTimer.value);
@@ -267,10 +311,11 @@ const touchMove = (event: TouchEvent) => {
 };
 
 const doMove = (x: number, y: number) => {
-  if (imgex.value === null) {
+  const el = imgEl();
+  if (el === null) {
     return;
   }
-  const style = imgex.value.style;
+  const style = el.style;
 
   const posX = pxStringToNumber(style.left) + x;
   const posY = pxStringToNumber(style.top) + y;
@@ -296,8 +341,8 @@ const wheelMove = (event: WheelEvent) => {
 const setZoom = () => {
   scale.value = scale.value < minScale.value ? minScale.value : scale.value;
   scale.value = scale.value > maxScale.value ? maxScale.value : scale.value;
-  if (imgex.value !== null)
-    imgex.value.style.transform = `scale(${scale.value})`;
+  const el = imgEl();
+  if (el !== null) el.style.transform = `scale(${scale.value})`;
 };
 const pxStringToNumber = (style: string) => {
   return +style.replace("px", "");
@@ -310,6 +355,12 @@ const pxStringToNumber = (style: string) => {
   position: relative;
 }
 
+/*
+ * image-ex-img is forwarded to <LazyImage>'s inner <img> via `:class`
+ * (LazyImage useAttrs passes it through). The classes handle absolute
+ * positioning. LazyImage's wrapper sets 100% width/height so the
+ * absolutely-positioned child stays inside the preview viewport.
+ */
 .image-ex-img {
   position: absolute;
 }

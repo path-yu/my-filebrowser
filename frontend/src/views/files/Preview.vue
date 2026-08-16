@@ -162,7 +162,7 @@
                 <button v-for="(thumb, idx) in pdfThumbnails" :key="idx" class="pdf-thumb-item"
                   :class="{ active: idx + 1 === pdfCurrentPage }" @click="pdfGoToPage(idx + 1)">
                   <div class="pdf-thumb-frame" :class="{ active: idx + 1 === pdfCurrentPage }">
-                    <img v-if="thumb" :src="thumb" :alt="'第 ' + (idx + 1) + ' 页'" class="pdf-thumb-img" />
+                    <LazyImage v-if="thumb" fill :src="thumb" :alt="'第 ' + (idx + 1) + ' 页'" class="pdf-thumb-img" />
                     <div v-else class="pdf-thumb-empty">{{ idx + 1 }}</div>
                   </div>
                   <div class="pdf-thumb-number" :class="{ active: idx + 1 === pdfCurrentPage }">
@@ -382,7 +382,7 @@
       </div>
     </template>
 
-    <!-- 左右切换按钮：仅 MP3(audio) / MP4(video) 预览时显示，图片、PDF、文本等一律隐藏 -->
+    <!-- 左右切换按钮：图片(image) / 音频(audio) / 视频(video) 预览时显示；PDF、文本、epub 等其他类型隐藏 -->
     <button @click="prev" @mouseover="hoverNav = true" @mouseleave="hoverNav = false"
       :class="{ hidden: !isMediaPreview || !hasPrevious || !(showNav || alwaysShowNav) }" :aria-label="$t('buttons.previous')"
       :title="$t('buttons.previous')">
@@ -411,6 +411,7 @@ import { throttle } from "lodash-es";
 import HeaderBar from "@/components/header/HeaderBar.vue";
 import Action from "@/components/header/Action.vue";
 import ExtendedImage from "@/components/files/ExtendedImage.vue";
+import LazyImage from "@/components/files/LazyImage.vue";
 import VideoPlayer from "@/components/files/VideoPlayer.vue";
 import CsvViewer from "@/components/files/CsvViewer.vue";
 import { VueReader } from "vue-reader";
@@ -1078,10 +1079,10 @@ const hasPrevious = computed(() => previousLink.value !== "");
 
 const hasNext = computed(() => nextLink.value !== "");
 
-// 仅 MP3(audio) / MP4(video) 预览才展示左右切换按钮；
-// 图片、PDF、文本、代码、epub 等一律隐藏该按钮组，避免非音视频场景误操作。
+// 图片(image) / 音频(audio) / 视频(video) 预览时展示左右切换按钮；
+// PDF、文本、代码、epub 等其他类型保持隐藏。
 const isMediaPreview = computed(() =>
-  ["audio", "video"].includes(fileStore.req?.type ?? "")
+  ["image", "audio", "video"].includes(fileStore.req?.type ?? "")
 );
 
 // 音视频（MP3/MP4 等）预览时左右切换按钮常显：
@@ -1349,23 +1350,28 @@ const updatePreview = async () => {
   previousRaw.value = "";
   nextRaw.value = "";
 
-  // 只有 MP3/MP4 预览才做"同目录内音视频循环切换"。
-  // 图片、PDF、文本、代码、epub 等文件：previousLink / nextLink 保持为空，
-  // 保证 L382/L388 两个按钮始终被 :class.hidden 隐藏。
+  // 图片 / 音频 / 视频预览：做"同目录内相同类型循环切换"。
+  // 其他类型（PDF、文本、代码、epub 等）保持 previousLink / nextLink 为空，
+  // 使 L385/L392 的左右按钮始终被 :class.hidden 隐藏。
   const currentType = fileStore.req?.type;
-  if (!listing.value || (currentType !== "audio" && currentType !== "video")) {
+  const switchable = currentType === "image" || currentType === "audio" || currentType === "video";
+  if (!listing.value || !switchable) {
     return;
   }
 
-  // 音视频预览（MP3/MP4 等）：取当前目录内全部 audio + video 文件作为切换序列，
-  // 首尾循环（第一个的上一个是最后一个）。这样只要目录里不止一个 mp3/mp4，
-  // 左右切换按钮始终可用，可在所有音视频文件间连续轮转。
-  // 注意：watch(route) 触发时 fileStore.req 可能仍是上一个文件（store 尚未更新），
+  // 构建切换序列：图片只和图片切、音频+视频合并切（兼容旧行为）。
+  // 首尾循环（第一个的上一个是最后一个）。
+  // 注意：watch(route) 触发时 fileStore.req 可能仍是旧文件（store 尚未更新），
   // 因此当前文件名优先从 route 解析（route 永远是最新的），避免用旧文件名算出指向自己的 next。
   {
-    const mediaList = listing.value.filter(
-      (item) => item.type === "audio" || item.type === "video"
-    );
+    let mediaList: ResourceItem[];
+    if (currentType === "image") {
+      mediaList = listing.value.filter((item) => item.type === "image");
+    } else {
+      mediaList = listing.value.filter(
+        (item) => item.type === "audio" || item.type === "video"
+      );
+    }
     const routeSegs = route.fullPath.split("/");
     const routeName = decodeURIComponent(routeSegs[routeSegs.length - 1]);
     const currentName = routeName || fileStore.req?.name?.trim() || name.value;

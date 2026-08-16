@@ -162,7 +162,7 @@
                 "
                 style="height: 12em; padding: 0; margin: 0"
               >
-                <img style="height: 12em" :src="raw" />
+                <LazyImage eager :src="raw" style="height: 12em" />
               </a>
               <div
                 v-else-if="
@@ -318,6 +318,7 @@ import Breadcrumbs from "@/components/Breadcrumbs.vue";
 import Errors from "@/views/Errors.vue";
 import QrcodeVue from "qrcode.vue";
 import Item from "@/components/files/ListingItem.vue";
+import LazyImage from "@/components/files/LazyImage.vue";
 import { useFileStore } from "@/stores/file";
 import { useLayoutStore } from "@/stores/layout";
 import {
