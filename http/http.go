@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/filebrowser/filebrowser/v2/files"
 	"github.com/filebrowser/filebrowser/v2/settings"
 	"github.com/filebrowser/filebrowser/v2/storage"
 )
@@ -25,6 +26,11 @@ func NewHandler(
 	assetsFs fs.FS,
 ) (http.Handler, error) {
 	server.Clean()
+
+	// Wire the persistent Blur-Up placeholder cache into the files package
+	// so readListing can batch-fill placeholders and the preview endpoint can
+	// lazily persist newly generated ones.
+	files.SetBlurUpStore(store.FileMetaCache)
 
 	r := mux.NewRouter()
 	r.Use(func(next http.Handler) http.Handler {

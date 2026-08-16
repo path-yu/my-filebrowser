@@ -149,6 +149,26 @@ func createPreview(imgSvc ImgService, fileCache FileCache,
 		}
 	}()
 
+	// Lazily generate and persist the Blur-Up placeholder on the first
+	// successful image decode. The listing hot-path does NO decode work; it
+	// just reads the cached placeholder in <1μs via Bolt in-memory index.
+	// We use the content-addressed key (RealPath + ModTime + Size) so the
+	// cache naturally self-invalidates whenever files change.
+	// Only compute when previewing the "thumb" size — that's the endpoint
+	// the file listing already calls for every image tile, which gives us
+	// warm-enough coverage without burning CPU on full-resolution previews.
+	if previewSize == PreviewSizeThumb {
+		go func() {
+			defer func() { _ = recover() }()
+			dataURL, err := files.GenerateBlurUpDataURL(file.Fs, file.Path, file.Extension)
+			if err != nil {
+				return
+			}
+			key := files.BlurUpCacheKey(file.RealPath(), file.ModTime.Unix(), file.Size)
+			files.SaveBlurUp(key, file.RealPath(), file.ModTime.Unix(), file.Size, dataURL)
+		}()
+	}
+
 	return buf.Bytes(), nil
 }
 

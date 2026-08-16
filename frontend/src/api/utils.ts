@@ -1,5 +1,5 @@
 import { useAuthStore } from "@/stores/auth";
-import { renew, logout } from "@/utils/auth";
+import { renew, logout, ensureAuthCookie } from "@/utils/auth";
 import { baseURL } from "@/utils/constants";
 import { encodePath } from "@/utils/url";
 
@@ -20,6 +20,14 @@ export async function fetchURL(
   auth = true
 ): Promise<Response> {
   const authStore = useAuthStore();
+
+  // Make sure the `auth` cookie stays in sync with localStorage JWT on
+  // EVERY API call. This guarantees <img src="/api/preview/..."> (which
+  // can only carry its auth via cookie) never runs into a 401 just because
+  // the cookie got dropped / wasn't rewritten after a SameSite flag change.
+  if (auth) {
+    ensureAuthCookie();
+  }
 
   opts = opts || {};
   opts.headers = opts.headers || {};
@@ -81,15 +89,49 @@ export function removePrefix(url: string): string {
   return url;
 }
 
-export function createURL(endpoint: string, searchParams = {}): string {
-  let prefix = baseURL;
-  if (!prefix.endsWith("/")) {
-    prefix = prefix + "/";
-  }
-  const url = new URL(prefix + encodePath(endpoint), origin);
-  url.search = new URLSearchParams(searchParams).toString();
+export function createURL(endpoint: string, searchParams: Record<string, any> = {}): string {
+  // ---- Why we STOPPED using `new URL(prefix + encodePath(endpoint), origin)`? ----
+  // Browser's URL constructor silently DECODES %5B → [ and %5D → ] in the *path*
+  // portion because RFC 3986 lists "[]" as gen-delims reserved for IPv6-literal
+  // hostnames. The resulting URL.toString() would then contain BARE brackets in
+  // the path segment, and Vite's http-proxy-middleware / Node http.request /
+  // Go net/http would any of them:
+  //   - treat `[foo]` as malformed → 403/400
+  //   - mis-parse the path (e.g. strip trailing segments) → wrong file → 404
+  //   - fall back to the SPA NotFoundHandler → serve index.html for an <img>
+  // So we build the URL by hand as a plain string to keep percent-encoded
+  // delimiters exactly as `encodePath` produced them.
+  // ------------------------------------------------------------------------------
+  const encodedPath = encodePath(endpoint)
+    // Belt-and-braces: never allow a raw `[` or `]` to leak into the URL path,
+    // even if a future change to `encodePath` accidentally skips them.
+    .replace(/\[/g, "%5B")
+    .replace(/\]/g, "%5D");
 
-  return url.toString();
+  let prefix = baseURL;
+  if (prefix.endsWith("/")) {
+    prefix = prefix.slice(0, -1);
+  }
+
+  let pathPart = encodedPath;
+  if (!pathPart.startsWith("/")) {
+    pathPart = "/" + pathPart;
+  }
+
+  const originBase = typeof origin !== "undefined" ? origin : "";
+  let out = `${originBase}${prefix}${pathPart}`;
+
+  const sp = new URLSearchParams();
+  for (const k of Object.keys(searchParams)) {
+    const v = searchParams[k];
+    if (v === undefined || v === null || v === "") continue;
+    sp.append(k, String(v));
+  }
+  const qs = sp.toString();
+  if (qs) {
+    out += "?" + qs;
+  }
+  return out;
 }
 
 export function setSafeTimeout(callback: () => void, delay: number): number {

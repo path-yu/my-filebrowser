@@ -321,6 +321,8 @@
                   v-bind:size="item.size"
                   v-bind:path="item.path"
                   v-bind:product-code="productCodes[item.path] || ''"
+                  v-bind:blur-up="item.blurUp"
+                  v-bind:thumbs-eager="true"
                 >
                 </item>
               </template>
@@ -344,6 +346,7 @@
                 v-bind:size="item.size"
                 v-bind:path="item.path"
                 v-bind:product-code="productCodes[item.path] || ''"
+                v-bind:blur-up="item.blurUp"
               >
               </item>
             </div>
@@ -511,12 +514,15 @@
               <template v-else-if="isImagePreview">
                 <!-- 注意：不能用 previewedItem.url（那是前端路由路径 /files/...，
                      返回的是 SPA index.html 而非图片字节）；走 /api/raw?inline=true，
-                     鉴权由登录时种下的 auth cookie 完成（后端 auth.go 支持 cookie 回退） -->
-                <img
+                     鉴权由登录时种下的 auth cookie 完成（后端 auth.go 支持 cookie 回退）。
+                     预览窗格是用户点击文件立即需要看到的，所以用 eager=true 跳过懒加载，
+                     但仍然享受 LazyImage 的 iOS 菊花 + 错误重试处理。 -->
+                <LazyImage
                   class="preview-pane__image"
                   :src="getDownloadLink(previewedItem)"
                   :alt="previewedItem.name"
-                  loading="lazy"
+                  :blurUp="previewedItem.blurUp"
+                  eager
                   @error="onPreviewImageError"
                 />
               </template>
@@ -777,6 +783,7 @@ import Action from "@/components/header/Action.vue";
 import Search from "@/components/Search.vue";
 import Item from "@/components/files/ListingItem.vue";
 import VirtualList from "@/components/files/VirtualList.vue";
+import LazyImage from "@/components/files/LazyImage.vue";
 import ContextMenu from "@/components/ContextMenu.vue";
 import { matchesTypeFilter } from "@/composables/fileTypeFilter";
 import {

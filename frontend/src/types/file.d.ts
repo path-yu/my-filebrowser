@@ -9,6 +9,9 @@ interface ResourceBase {
   isSymlink: boolean;
   type: ResourceType;
   url: string;
+  /** Inline Blur-Up placeholder (tiny JPEG data URL). Null until the
+   *  back-end lazily generates it during the first thumbnail fetch. */
+  blurUp?: string;
 }
 
 interface Resource extends ResourceBase {

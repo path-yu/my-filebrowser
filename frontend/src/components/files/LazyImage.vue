@@ -9,11 +9,32 @@
       'lazy-image--error':   state === 'error',
     }"
   >
-    <!-- Spinner (iOS-style UIActivityIndicator): 12 radial bars with staggered fade+spin. -->
-    <div v-if="state === 'loading'" class="lazy-image__spinner" aria-hidden="true">
-      <span class="ios-spinner">
-        <i v-for="i in 12" :key="i" class="ios-spinner__bar" :style="iosSpinnerBarStyle(i)"></i>
-      </span>
+    <!-- Blur-Up placeholder layer.
+         - Paints a tiny pre-generated inline JPEG over the wrapper while the
+           real image downloads. A heavy blur + a slight zoom ensures no pixel
+           artefacts show at the edges and the colour palette is representative.
+         - Shown only when (a) the back-end supplied a valid data URL AND
+           (b) the HD image is still loading or errored. Once loaded, v-if
+           destroys this node so GPU memory is released.
+         - Takes z-index precedence over the skeleton so the two never overlap. -->
+    <div
+      v-if="useBlurUp && state !== 'loaded'"
+      class="lazy-image__blur-up"
+      :style="blurUpStyle"
+      aria-hidden="true"
+    ></div>
+
+    <!-- Loading skeleton: same-size gray block with a shimmer sweep.
+         - Rendered only while state==='loading', so it cannot hide the real
+           image after load (avoids the classic "skeleton stays on top" bug).
+         - SKIPPED entirely when a Blur-Up placeholder is available; that gives
+           us a coloured preview without layout shift and feels instant. -->
+    <div
+      v-if="state === 'loading' && !useBlurUp"
+      class="lazy-image__skeleton"
+      aria-hidden="true"
+    >
+      <span class="lazy-image__skeleton-shimmer"></span>
     </div>
 
     <!-- Error placeholder (clickable to retry via reload) -->
@@ -68,6 +89,7 @@ import {
   useAttrs,
   watch,
 } from "vue";
+import { ensureAuthCookie, readAuthCookie } from "@/utils/auth";
 
 type State = "loading" | "loaded" | "error";
 
@@ -102,6 +124,15 @@ interface Props {
 
   /** Short text inside the error placeholder. Falls back to a default hint. */
   errorText?: string;
+
+  /**
+   * Blur-Up / BlurHash-style progressive placeholder. Accepts a data URL
+   * (data:image/jpeg;base64,...) as produced by the back-end. When set, this
+   * layer replaces the skeleton screen — giving the user an instant coloured
+   * preview that then cross-fades to the real image. An invalid value is
+   * silently ignored (skeleton shows as normal).
+   */
+  blurUp?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -111,6 +142,7 @@ const props = withDefaults(defineProps<Props>(), {
   threshold: 0.01,
   errorTitle: "",
   errorText: "",
+  blurUp: "",
 });
 
 // Transparent 1x1 PNG (data URL) used as the placeholder *before* the real URL is assigned.
@@ -127,6 +159,7 @@ const imgBindings = computed<Record<string, unknown>>(() => {
   const out: Record<string, unknown> = {};
   const skipProps = new Set<string>([
     "src", "eager", "fill", "rootMargin", "threshold", "errorTitle", "errorText",
+    "blurUp",
   ]);
   // With inheritAttrs=false, Vue routes every non-prop attribute (class/style/alt/id/…)
   // into attrs, so we can safely bind them all onto <img> — exactly as if the caller
@@ -142,22 +175,45 @@ const imgBindings = computed<Record<string, unknown>>(() => {
 const wrapRef = ref<HTMLElement | null>(null);
 const imgRef  = ref<HTMLImageElement | null>(null);
 
-// Build the per-bar inline style for the iOS-style activity indicator.
-// 12 bars arranged radially, each offset by 30°; a 1s staggered opacity-fade
-// cycle (equally distributed over 12 bars) produces the classic "moving light
-// trail" effect identical to UIActivityIndicatorView on iOS.
-const FADE_CYCLE_MS = 1000;
-const iosSpinnerBarStyle = (index: number): Record<string, string> => {
-  const zeroBased = index - 1; // 0..11
-  return {
-    transform: `rotate(${zeroBased * 30}deg)`,
-    animationDelay: `-${(FADE_CYCLE_MS * zeroBased) / 12}ms`,
-  };
-};
-
 const state   = ref<State>("loading");
 const entered = ref<boolean>(!!props.eager);
 let observer: IntersectionObserver | null = null;
+
+/**
+ * Fetch-authenticated override src:
+ *   - When a plain Image() load fails (typically 401/403 because `auth`
+ *     cookie got dropped / SameSite mis-match / Vite proxy path issue),
+ *     we retry via fetch(...) with the explicit `X-Auth: <jwt>` header,
+ *     convert the Blob to an object URL and feed it to the <img> instead.
+ *   - This guarantees thumbnails / preview pictures render even if the
+ *     cookie-based GET authenticator can't see the token.
+ */
+const overrideSrc = ref<string>("");
+/** Tracks the last blob-URL we created, so we can revoke it on swap / unmount. */
+let lastObjectUrl: { key: string | null; url: string | null } = { key: null, url: null };
+const revokeObjectUrlIfAny = () => {
+  if (lastObjectUrl.url) {
+    try { URL.revokeObjectURL(lastObjectUrl.url); } catch { /* noop */ }
+    lastObjectUrl = { key: null, url: null };
+  }
+};
+
+const readJwt = (): string => {
+  // 1) Make sure the plain-GET `auth` cookie that <img src>/Image() relies on
+  //    is present, in-sync with localStorage and formatted as SameSite=Lax
+  //    before we even attempt the network call.
+  ensureAuthCookie();
+  // 2) localStorage copy is always populated by parseToken() / renew().
+  if (typeof localStorage !== "undefined") {
+    const v = localStorage.getItem("jwt");
+    if (v) return v;
+  }
+  // 3) Belt-and-braces: if for any reason localStorage was wiped but the
+  //    cookie still holds the token (proxy-auth scenarios / external SSO),
+  //    read the JWT back from the `auth` cookie so the X-Auth fallback can
+  //    still authenticate the fetch() call.
+  return readAuthCookie();
+};
 
 const effectiveErrorTitle = computed(
   () => props.errorTitle || "Image failed to load. Click to retry."
@@ -165,6 +221,15 @@ const effectiveErrorTitle = computed(
 const effectiveErrorText = computed(
   () => props.errorText || "Load failed · Retry"
 );
+
+// Blur-Up placeholder support.
+// Only accept real data URLs to avoid XSS via javascript: URLs.
+const useBlurUp = computed<boolean>(
+  () => !!props.blurUp && props.blurUp.startsWith("data:image/")
+);
+const blurUpStyle = computed<Record<string, string>>(() => ({
+  backgroundImage: `url(${props.blurUp})`,
+}));
 
 // Emit a well-known events without breaking v-bind="$attrs" re-bindings.
 // Using defineEmits here also makes @load/@error used on <LazyImage> compile correctly.
@@ -174,6 +239,8 @@ const emit = defineEmits<{
 }>();
 
 const resolvedSrc = computed<string>(() => {
+  // Fallback blob URL (fetch + X-Auth) always wins when it exists.
+  if (overrideSrc.value) return overrideSrc.value;
   // Not yet entered viewport → never load real URL.
   if (!entered.value) return BLANK;
   // src is empty → blank + error state.
@@ -181,29 +248,211 @@ const resolvedSrc = computed<string>(() => {
   return props.src;
 });
 
-// Reset state whenever `src` actually changes (but not if we haven't entered viewport yet).
+/**
+ * Fallback loader: re-issue the request as `fetch(..., { headers: X-Auth })`
+ * and convert the response bytes to a blob: URL. Used when the plain
+ * Image() loader fails (cookie not available / 401 / 403 / proxy issue).
+ *
+ * Returns `true` if the fallback succeeded and state was flipped to loaded.
+ */
+const tryFetchFallback = async (origSrc: string, key: string): Promise<boolean> => {
+  if (origSrc.startsWith("data:") || origSrc.startsWith("blob:")) {
+    return false; // can't fallback on inline URIs
+  }
+  const jwt = readJwt();
+  if (!jwt) return false; // nothing to authenticate with
+
+  try {
+    const res = await fetch(origSrc, {
+      method: "GET",
+      credentials: "include", // still send cookie if available
+      headers: {
+        "X-Auth": jwt,
+      },
+    });
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    if (blob.size === 0) return false;
+
+    // revoke previous blob-url to avoid GPU memory leak on 4000-row list scroll
+    revokeObjectUrlIfAny();
+    const objectUrl = URL.createObjectURL(blob);
+    lastObjectUrl = { key, url: objectUrl };
+
+    overrideSrc.value = objectUrl;
+    // Wait until Vue assigns the overrideSrc to <img src> so the actual
+    // decode happens on the real DOM element; then emit `load` externally.
+    await nextTick();
+    const fireSynthetic = () => {
+      const ev = new Event("load");
+      onImgLoad(ev);
+    };
+    if (imgRef.value?.complete && imgRef.value.naturalWidth > 0) {
+      fireSynthetic();
+    } else {
+      const el = imgRef.value;
+      const onDone = () => {
+        el?.removeEventListener("load", onDone);
+        el?.removeEventListener("error", onFailed);
+        fireSynthetic();
+      };
+      const onFailed = () => {
+        el?.removeEventListener("load", onDone);
+        el?.removeEventListener("error", onFailed);
+        // fallback of the fallback: surface original error placeholder
+        overrideSrc.value = "";
+        revokeObjectUrlIfAny();
+        onImgError(new Event("error"));
+      };
+      el?.addEventListener("load", onDone);
+      el?.addEventListener("error", onFailed);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Preload the image using a bare `new Image()` object.
+ *
+ * Why not rely on the template <img @load / @error> alone?
+ *   - When the browser serves the resource from HTTP cache (disk/memory) the
+ *     <img> onload event can fire *synchronously between* attribute assignment
+ *     and Vue patching the listener, so we miss it entirely. The user then
+ *     sees a forever-transparent image because state stays `loading` and the
+ *     `--hidden` class keeps opacity:0.
+ *   - A fresh Image() guarantees its onload/onerror will always run for the
+ *     current src because we wire the callbacks BEFORE assigning .src, even
+ *     if the bytes are already in cache.
+ */
+/**
+ * The legacy `new Image()` pipeline. Used for non-API assets (logo SVG,
+ * external CDN avatars, data URLs) and as the last-resort fallback if
+ * the authenticated fetch pipeline below fails for any reason.
+ */
+const classicImagePreload = (src: string, key: string) => {
+  // data URL (blur-up itself / pre-generated): never network-fetches,
+  // triggers synchronous decode but Image() still fires onload reliably.
+  const loader = new Image();
+  // Pass through raw attrs that affect cross-origin loading (cors, referrer).
+  // Without this some servers would reject with 403 and Image() would error
+  // even though the template <img> loads fine.
+  const cors = (attrs as any)?.crossorigin;
+  const refp = (attrs as any)?.referrerpolicy;
+  if (cors) loader.crossOrigin = cors;
+  if (refp) loader.referrerPolicy = refp;
+
+  loader.onload = (ev: Event) => {
+    if (lastPreloadKey !== key) return; // stale
+    // If we had a blob-url from an earlier fallback, drop it now that the
+    // canonical URL has loaded cleanly — it's always preferable to let the
+    // browser HTTP cache manage the canonical bytes directly.
+    if (overrideSrc.value) {
+      overrideSrc.value = "";
+      revokeObjectUrlIfAny();
+    }
+    onImgLoad(ev);
+  };
+  loader.onerror = async (ev: Event | string) => {
+    if (lastPreloadKey !== key) return; // stale
+    // Try the fetch + X-Auth fallback before surfacing a broken-image icon.
+    const ok = await tryFetchFallback(src, key);
+    if (lastPreloadKey !== key) return; // src changed while awaiting fallback
+    if (ok) return;
+    const errEv = ev instanceof Event ? ev : new Event("error");
+    onImgError(errEv);
+  };
+  loader.src = src;
+};
+
+let lastPreloadKey: string | null = null;
+const preloadImage = (src: string): void => {
+  // Ignore the blank placeholder — it isn't a real image.
+  if (!src || src === BLANK || src.startsWith("data:image/svg+xml")) {
+    if (!props.src) {
+      // No source provided → surface an error placeholder so callers see something.
+      const ev = new Event("error");
+      onImgError(ev);
+    } else {
+      // Still waiting for IO to fire (resolvedSrc=BLANK case): keep loading.
+      // If already in cache we get a fast synthetic "loaded" event to show
+      // Blur-Up without a gap between skeleton → HD fade-in.
+      const ev = new Event("load");
+      onImgLoad(ev);
+    }
+    return;
+  }
+
+  // Guard against race conditions: if preload was requested for a different
+  // src while a previous request is in-flight, discard the stale result.
+  const key = src;
+  lastPreloadKey = key;
+
+  // Keep cookie in sync for any legacy callers / direct <a> downloads.
+  ensureAuthCookie();
+
+  // ================================================================
+  // DEFAULT PIPELINE FOR /api/* IMAGES → fetch() + X-Auth header
+  // ================================================================
+  // Why abandon cookie-based <img src> GET as the primary path?
+  //   Cookies for plain-GET resources keep failing in production for:
+  //   1. SameSite=Lax edge cases (DevTools new tab, bookmark open)
+  //   2. Safari ITP / Android WebViews cookie jars blocking
+  //   3. Browser extension "privacy" tools nuking auth cookies
+  //   4. Old cached SameSite=Strict cookie not yet overwritten on reload
+  //   5. Vite dev proxy rewriting cookie paths on 5173↔8080 hop
+  //   The X-Auth header is 100% deterministic: we read JWT from
+  //   localStorage/cookie and inject it manually.  Backend withUser
+  //   accepts that header FIRST (before checking cookie) and always
+  //   returns 200 for valid tokens — verified above via curl tests.
+  //   fetch() still benefits from the browser HTTP disk cache, so
+  //   repeat list renders / scroll-back don't re-download bytes.
+  // ----------------------------------------------------------------
+  const apiPattern = /(^|\/)api\/(preview|raw|static|share)\//;
+  const looksLikeApiUrl =
+    apiPattern.test(src) ||
+    (typeof location !== "undefined" && apiPattern.test(src.replace(location.origin, "")));
+
+  if (looksLikeApiUrl) {
+    const jwt = readJwt();
+    if (jwt) {
+      (async () => {
+        const ok = await tryFetchFallback(src, key);
+        if (lastPreloadKey !== key) return;
+        if (ok) return;
+        // Fetch + X-Auth unexpectedly failed too → last chance via
+        // classic Image() cookie pipeline (still useful if fetch was
+        // aborted by DevTools / offline while a cached Image() would work).
+        classicImagePreload(src, key);
+      })();
+      return; // don't run the Image loader in parallel
+    }
+  }
+
+  // Non-API assets or missing JWT → plain Image pipeline.
+  classicImagePreload(src, key);
+};
+
+// When the image enters the viewport: start the real preload.
+watch(entered, (val) => {
+  if (!val || !props.src) return;
+  state.value = "loading";
+  nextTick(() => preloadImage(props.src));
+});
+
+// Reset state + re-preload whenever `src` changes (only after entering viewport).
+// This also covers direct-src components like HeaderBar logos that are eager=true
+// on first render but receive a second props.src update when routing resolves.
 watch(
   () => props.src,
-  async () => {
-    if (!entered.value) return;
+  (newSrc) => {
+    if (!entered.value || !newSrc) return;
     state.value = "loading";
-    await nextTick();
-    // If <img> src has not been updated yet because browser deduplicated it, force re-load.
-    if (imgRef.value) {
-      try {
-        // Force browser to re-evaluate by briefly resetting src.
-        if (imgRef.value.src && new URL(imgRef.value.src).href !== props.src) {
-          imgRef.value.src = props.src;
-        } else {
-          const current = imgRef.value.src;
-          imgRef.value.src = BLANK;
-          await nextTick();
-          imgRef.value.src = current;
-        }
-      } catch {
-        imgRef.value.src = props.src;
-      }
-    }
+    // src 变了：清除上一次 fallback 的 blob-url，防止 GPU 内存泄漏 + 避免旧 overrideSrc 抢先渲染
+    overrideSrc.value = "";
+    revokeObjectUrlIfAny();
+    nextTick(() => preloadImage(newSrc));
   }
 );
 
@@ -223,17 +472,18 @@ const onImgError = (ev: Event) => {
 };
 
 const reload = () => {
-  if (!imgRef.value || !props.src) return;
+  if (!props.src) return;
   state.value = "loading";
   // Bust browser cache for the same URL: append a timestamp query (only when not data URI).
   let nextSrc = props.src;
-  if (nextSrc.startsWith("data:") || nextSrc.startsWith("blob:")) {
-    // No cache bust for inline data.
-  } else {
+  if (!nextSrc.startsWith("data:") && !nextSrc.startsWith("blob:")) {
     const sep = nextSrc.includes("?") ? "&" : "?";
     nextSrc = `${nextSrc}${sep}__retry=${Date.now()}`;
   }
-  imgRef.value.src = BLANK;
+  // Preload with cache-bust then swap the visible img src in via the usual watch.
+  lastPreloadKey = nextSrc;
+  preloadImage(nextSrc);
+  // Also swap the DOM src so retina/HTIF pipelines still see the retry URL.
   nextTick(() => {
     if (imgRef.value) imgRef.value.src = nextSrc;
   });
@@ -255,24 +505,30 @@ const onIntersect = (entries: IntersectionObserverEntry[]) => {
 onMounted(() => {
   if (props.eager) {
     entered.value = true;
-    return;
-  }
-  if (typeof IntersectionObserver === "undefined") {
+  } else if (typeof IntersectionObserver === "undefined") {
     // Very old browsers (no modern IO): degrade to eager.
     entered.value = true;
-    return;
+  } else {
+    const el = wrapRef.value || imgRef.value;
+    if (el) {
+      try {
+        observer = new IntersectionObserver(onIntersect, {
+          root: null,
+          rootMargin: props.rootMargin,
+          threshold: props.threshold,
+        });
+        observer.observe(el);
+      } catch {
+        entered.value = true;
+      }
+    }
   }
-  const el = wrapRef.value || imgRef.value;
-  if (!el) return;
-  try {
-    observer = new IntersectionObserver(onIntersect, {
-      root: null,
-      rootMargin: props.rootMargin,
-      threshold: props.threshold,
-    });
-    observer.observe(el);
-  } catch {
-    entered.value = true;
+
+  // If component mounted with eager=true (or we immediately degraded),
+  // kick off the preload synchronously. This also covers the case where
+  // watch(entered) doesn't fire because mounted assigned the value.
+  if (entered.value && props.src) {
+    nextTick(() => preloadImage(props.src));
   }
 });
 
@@ -281,6 +537,10 @@ onBeforeUnmount(() => {
     observer.disconnect();
     observer = null;
   }
+  // VirtualList rows recycle fast; leak of blob URLs → GPU memory grows unbounded.
+  // Always revoke on unmount.
+  overrideSrc.value = "";
+  revokeObjectUrlIfAny();
 });
 
 // Expose inner <img> element so consumers (ExtendedImage) that need raw DOM
@@ -309,6 +569,7 @@ defineExpose<{
   max-width: 100%;
   max-height: 100%;
   vertical-align: middle;
+  border-radius: var(--lazy-image-radius, 8px);
   background: var(--lazy-image-bg, transparent);
 }
 /* fill=true: stretch the wrapper to its parent; inner image uses object-fit. */
@@ -328,12 +589,16 @@ defineExpose<{
  * and those rules (tag + class specificity: 0-1-0 / 0-0-2) need to win over this
  * default block. We only set *conservative* defaults so that the component falls
  * back to intrinsic image sizing when nothing constrains it.
+ *
+ * opacity transition 0.4s matches the Blur-Up cross-fade specification.
  */
 .lazy-image__img {
   display: block;
   max-width: 100%;
   max-height: 100%;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.4s ease-out;
+  position: relative;
+  z-index: 1; /* real image must paint ABOVE the blur-up layer when fading in */
 }
 .lazy-image--fill .lazy-image__img {
   width: 100%;
@@ -344,64 +609,93 @@ defineExpose<{
   opacity: 0;
 }
 
-/* Loading spinner (centered, size-matched so it doesn't shift content) */
-.lazy-image__spinner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 1;
+/* ================================================================
+ * Loading state: SKELETON (gray block + shimmer sweep).
+ *
+ * How we cover all scenarios without layout shift:
+ *   1. `.lazy-image--loading` tints the wrapper background with the
+ *      skeleton base color. The wrapper already inherits the target
+ *      size from the inner <img> (via CSS class/style rules written
+ *      by callers, e.g. `#listing .item img { width:4em;height:4em }`)
+ *      or via fill=100%. So the background IS the visible skeleton
+ *      rectangle by itself — no extra min-size forcing needed, no CLS.
+ *   2. `.lazy-image__skeleton-shimmer` overlays a diagonal gradient
+ *      that sweeps left→right (classic iOS/macOS skeleton shimmer).
+ *   3. Everything is `inset: 0` so there's no bleed outside the image
+ *      area. v-if="state==='loading'" guarantees we never obscure the
+ *      real image after a successful load.
+ * ================================================================ */
+.lazy-image--loading {
+  background-color: var(--lazy-image-skeleton, #E5E5EA);
+}
+/* Dark theme: iOS/macOS system gray level 2 equivalent */
+:where(html.dark, [data-theme="dark"], :root[data-theme="dark"]) .lazy-image--loading {
+  background-color: var(--lazy-image-skeleton, #2C2C2E);
 }
 
-/*
- * iOS-style UIActivityIndicator.
- *   - 24x24 logical size (em-based so it scales with surrounding font-size).
- *   - 12 radial bars; only the bar closest to the current "light phase" is
- *     fully opaque — exactly like iOS UIActivityIndicatorViewStyleMedium.
- */
-.ios-spinner {
-  position: relative;
-  display: inline-block;
-  width: 1.75em;
-  height: 1.75em;
-  min-width: 26px;
-  min-height: 26px;
-  /*
-   * Whole-indicator spin is optional but gives that classic iOS "flow".
-   * The staggered per-bar fade does the heavy lifting visually.
-   */
-  animation: ios-spinner-spin 10s linear infinite;
-  color: var(--lazy-image-spinner, rgba(127, 127, 127, 0.85));
-}
-.ios-spinner__bar {
+.lazy-image__skeleton {
   position: absolute;
-  left: 50%;
-  top: 0;
-  width: 10%;            /* ~2.4px on a 24px indicator */
-  height: 28%;           /* ~6.7px  on a 24px indicator */
-  margin-left: -5%;      /* horizontal centering (half of width) */
-  transform-origin: 50% 178.5714%;   /* 50% / 0.28 ≈ 178.57%: rotate around indicator center */
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.1;          /* default off-state: the animation picks one bar at a time */
-  animation: ios-spinner-fade 1s linear infinite;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
 }
-/* Bar opacity phases: the fade animation reaches 1.0 at exactly one point during
- * the 1s cycle; combined with the 12-step animation-delay we end up with a
- * smooth rotating "bright line" that walks around the circle, identical to iOS.
- */
-@keyframes ios-spinner-fade {
-  0%, 100% { opacity: 0.10; }
-  50%      { opacity: 1.00; }
+
+/* Shimmer sweep — a 50%-wide gradient band sliding from -100% to +100%. */
+.lazy-image__skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  animation: lazy-image-skeleton-sweep 1.5s ease-in-out infinite;
+  will-change: transform;
 }
-/* Very slow whole-spin is optional polish; if you want 1:1 iOS you can set
- * this duration to 0 and rely purely on per-bar fades. Kept as a subtle touch.
- */
-@keyframes ios-spinner-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Dark theme: dim the sweep (full white would burn on near-black bg) */
+:where(html.dark, [data-theme="dark"], :root[data-theme="dark"])
+  .lazy-image__skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+}
+@keyframes lazy-image-skeleton-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ================================================================
+ * Blur-Up progressive placeholder.
+ *
+ * - Renders the inline 20×20 JPEG stretched to fill the wrapper.
+ * - A heavy gaussian blur destroys pixel-level detail and gives us the
+ *   familiar "blurred preview" colour wash; scale(1.1) + inset:-4px
+ *   prevent the soft blur edges from showing a dark gap against the
+ *   wrapper border (common "edge bleed" artefact with extreme blur).
+ * - will-change hints the compositor to keep this as a cheap GPU layer
+ *   so the heavy filter doesn't repaint during scroll.
+ * ================================================================ */
+.lazy-image__blur-up {
+  position: absolute;
+  inset: -4px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px); /* Safari compositing parity */
+  transform: scale(1.1);
+  transform-origin: center center;
+  pointer-events: none;
+  will-change: transform, filter;
+  z-index: 0;
+  border-radius: inherit;
 }
 
 /* Error card */

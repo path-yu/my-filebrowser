@@ -51,6 +51,12 @@ type FileInfo struct {
 	Token      string            `json:"token,omitempty"`
 	currentDir []os.FileInfo     `json:"-"`
 	Resolution *ImageResolution  `json:"resolution,omitempty"`
+	// BlurUp is a tiny (≤20×20) JPEG placeholder served as a data URL. The
+	// front-end paints it under a heavy gaussian blur while the real image
+	// downloads, then cross-fades to the full image. Empty when no cached
+	// placeholder exists yet — in that case the front-end falls back to the
+	// skeleton loading UI which was the previous default.
+	BlurUp string `json:"blurUp,omitempty"`
 }
 
 // FileOptions are the options when getting a file info.
@@ -521,6 +527,35 @@ func (i *FileInfo) readListing(checker rules.Checker, readHeader bool, calcImgRe
 		}
 
 		listing.Items = append(listing.Items, file)
+	}
+
+	// Batch-fill BlurUp placeholders for every image in this listing.
+	// Lookup is O(1) in-memory after the first call; misses are silently
+	// skipped and placeholders are computed lazily the first time the
+	// thumbnail API is invoked (see http/preview.go createPreview).
+	if len(listing.Items) > 0 {
+		type keyedItem struct {
+			index   int
+			cacheKey string
+		}
+		var keyed []keyedItem
+		keys := make([]string, 0, len(listing.Items))
+		for idx, it := range listing.Items {
+			if it.IsDir || it.Type != "image" {
+				continue
+			}
+			k := BlurUpCacheKey(it.RealPath(), it.ModTime.Unix(), it.Size)
+			keyed = append(keyed, keyedItem{index: idx, cacheKey: k})
+			keys = append(keys, k)
+		}
+		if len(keys) > 0 {
+			cached, _ := BatchGetBlurUps(keys) // errors best-effort
+			for _, ki := range keyed {
+				if v, ok := cached[ki.cacheKey]; ok {
+					listing.Items[ki.index].BlurUp = v
+				}
+			}
+		}
 	}
 
 	i.Listing = listing

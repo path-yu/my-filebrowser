@@ -24,9 +24,11 @@
     @contextmenu="contextMenu"
   >
     <div>
-      <img
+      <LazyImage
         v-if="!readOnly && type === 'image' && isThumbsEnabled"
-        v-lazy="thumbnailUrl"
+        :src="thumbnailUrl"
+        :blurUp="blurUp"
+        :eager="thumbsEager"
       />
       <i v-else class="material-icons"></i>
     </div>
@@ -67,6 +69,7 @@
 import { useAuthStore } from "@/stores/auth";
 import { useFileStore } from "@/stores/file";
 import { useLayoutStore } from "@/stores/layout";
+import LazyImage from "@/components/files/LazyImage.vue";
 
 import { enableThumbs } from "@/utils/constants";
 import { filesize } from "@/utils";
@@ -103,6 +106,13 @@ const props = defineProps<{
   readOnly?: boolean;
   path?: string;
   productCode?: string;
+  /** Progressive blur-up placeholder (data:image/jpeg;base64). */
+  blurUp?: string;
+  /** Force the thumbnail <LazyImage> into eager mode (skip IntersectionObserver).
+   *  Used inside <VirtualList> where IO viewport calculations don't match the
+   *  transform-offset rendering. No performance penalty because <VirtualList>
+   *  already renders only ~30-60 rows in the viewport + buffer. */
+  thumbsEager?: boolean;
 }>();
 
 const authStore = useAuthStore();

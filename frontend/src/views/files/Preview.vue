@@ -53,7 +53,7 @@
           </div>
         </div>
         <CsvViewer v-else-if="isCsv" :content="csvContent" :error="csvError" />
-        <ExtendedImage v-else-if="fileStore.req?.type == 'image'" :src="previewUrl" />
+        <ExtendedImage v-else-if="fileStore.req?.type == 'image'" :src="previewUrl" :blurUp="fileStore.req?.blurUp" />
           <MacOsAudioPlay size="md"  bottom="120px" 
   width="80%"  v-else-if="fileStore.req?.type == 'audio'" ref="player" :src="previewUrl" />
 
@@ -491,7 +491,7 @@ const previousLink = ref<string>("");
 const nextLink = ref<string>("");
 const listing = ref<ResourceItem[] | null>(null);
 const name = ref<string>("");
-const fullSize = ref<boolean>(false);
+const fullSize = ref<boolean>(true);
 const showNav = ref<boolean>(true);
 const navTimeout = ref<null | number>(null);
 const hoverNav = ref<boolean>(false);
@@ -1102,6 +1102,9 @@ const previewUrl = computed(() => {
     return "";
   }
 
+  // 图片预览：默认直接加载原图（api/raw），保证1:1像素精度。
+  // 切换到压缩图用 "HD 降低" 按钮（fullSize=false）走缩略图以节省带宽。
+  // 注意：api/preview/big 是后端压缩的缩略图（通常几百KB），远小于原图。
   if (fileStore.req.type === "image" && !fullSize.value) {
     return buildPreviewUrl(fileStore.req, "big");
   }
@@ -1345,25 +1348,30 @@ const updatePreview = async () => {
     }
   }
 
-  previousLink.value = "";
-  nextLink.value = "";
-  previousRaw.value = "";
-  nextRaw.value = "";
+  /**
+   * Build prev/next navigation links for switchable media types (image/audio/video).
+   *
+   * Extracted as a standalone helper so it can be called both synchronously
+   * (listing already cached from the directory view) AND after the async
+   * directory fetch above completes — otherwise the first render after a
+   * direct link visit (where listing.value was null) never produces any
+   * navigation buttons, regardless of how many siblings exist on disk.
+   */
+  const buildMediaSequence = () => {
+    previousLink.value = "";
+    nextLink.value = "";
+    previousRaw.value = "";
+    nextRaw.value = "";
 
-  // 图片 / 音频 / 视频预览：做"同目录内相同类型循环切换"。
-  // 其他类型（PDF、文本、代码、epub 等）保持 previousLink / nextLink 为空，
-  // 使 L385/L392 的左右按钮始终被 :class.hidden 隐藏。
-  const currentType = fileStore.req?.type;
-  const switchable = currentType === "image" || currentType === "audio" || currentType === "video";
-  if (!listing.value || !switchable) {
-    return;
-  }
+    // Only image/audio/video support sibling cycling. All other types
+    // (PDF/text/code/epub/...) intentionally keep the buttons hidden.
+    const currentType = fileStore.req?.type;
+    const switchable = currentType === "image" || currentType === "audio" || currentType === "video";
+    if (!listing.value || !switchable) {
+      return;
+    }
 
-  // 构建切换序列：图片只和图片切、音频+视频合并切（兼容旧行为）。
-  // 首尾循环（第一个的上一个是最后一个）。
-  // 注意：watch(route) 触发时 fileStore.req 可能仍是旧文件（store 尚未更新），
-  // 因此当前文件名优先从 route 解析（route 永远是最新的），避免用旧文件名算出指向自己的 next。
-  {
+    // Image <-> image only; audio and video share one list (legacy behaviour).
     let mediaList: ResourceItem[];
     if (currentType === "image") {
       mediaList = listing.value.filter((item) => item.type === "image");
@@ -1372,8 +1380,11 @@ const updatePreview = async () => {
         (item) => item.type === "audio" || item.type === "video"
       );
     }
-    const routeSegs = route.fullPath.split("/");
-    const routeName = decodeURIComponent(routeSegs[routeSegs.length - 1]);
+
+    // Prefer the currently-rendered filename. route.path (NOT fullPath) avoids
+    // accidentally including query-string fragments / hash in the name.
+    const pathSegs = route.path.split("/").filter((s) => s !== "");
+    const routeName = pathSegs.length > 0 ? decodeURIComponent(pathSegs[pathSegs.length - 1]) : "";
     const currentName = routeName || fileStore.req?.name?.trim() || name.value;
     const idx = mediaList.findIndex((item) => item.name === currentName);
     if (idx >= 0 && mediaList.length > 1) {
@@ -1381,8 +1392,12 @@ const updatePreview = async () => {
       const nextItem = mediaList[(idx + 1) % mediaList.length];
       previousLink.value = prevItem.url;
       nextLink.value = nextItem.url;
+      previousRaw.value = prefetchUrl(prevItem);
+      nextRaw.value = prefetchUrl(nextItem);
     }
-  }
+  };
+
+  buildMediaSequence();
 };
 
 const prefetchUrl = (item: ResourceItem) => {
@@ -1390,6 +1405,7 @@ const prefetchUrl = (item: ResourceItem) => {
     return "";
   }
 
+  // 预取：默认直接原图质量，避免进入单图预览时再从缩略图→原图切换时的跳变
   return fullSize.value
     ? buildDownloadURL(item, true)
     : buildPreviewUrl(item, "big");

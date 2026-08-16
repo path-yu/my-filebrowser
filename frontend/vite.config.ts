@@ -36,8 +36,34 @@ export default defineConfig(({ command }) => {
           "/api/command": {
             target: "ws://127.0.0.1:8080",
             ws: true,
+            // Make absolutely sure that raw `[` / `]` in the path never reach
+            // Node's http.request (which would throw ERR_INVALID_URL for them)
+            // or the Go backend gorilla/mux parser (403/404 for gen-delims in
+            // the path segment). encodeURIComponent on the browser side is
+            // the first line of defence; this proxy rewrite acts as a net.
+            configure: (proxy) => {
+              proxy.on("proxyReq", (proxyReq) => {
+                if (proxyReq.path) {
+                  proxyReq.path = proxyReq.path
+                    .replace(/\[/g, "%5B")
+                    .replace(/\]/g, "%5D");
+                }
+              });
+            },
           },
-          "/api": "http://127.0.0.1:8080",
+          "/api": {
+            target: "http://127.0.0.1:8080",
+            changeOrigin: false,
+            configure: (proxy) => {
+              proxy.on("proxyReq", (proxyReq) => {
+                if (proxyReq.path) {
+                  proxyReq.path = proxyReq.path
+                    .replace(/\[/g, "%5B")
+                    .replace(/\]/g, "%5D");
+                }
+              });
+            },
+          },
         },
       },
     };

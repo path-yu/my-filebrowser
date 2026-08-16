@@ -135,6 +135,20 @@ html[dir="rtl"] #listing {
   vertical-align: bottom;
 }
 
+/* -----------------------------------------------------------------
+ * LazyImage wrapper sizing (the outer <div> around <img>)
+ *
+ * Blur-Up / skeleton占位层都用 absolute inset:0 覆盖 wrapper 尺寸，
+ * 所以 wrapper 必须与内部 <img> 有同样的 width/height/外边距，
+ * 否则占位层要么 0×0 不可见，要么撑满父容器溢出。
+ * ----------------------------------------------------------------- */
+#listing .item .lazy-image {
+  width: 4em;
+  height: 4em;
+  margin-right: 0.1em;
+  vertical-align: bottom;
+}
+
 .message {
   text-align: center;
   font-size: 2em;
@@ -213,6 +227,10 @@ html[dir="rtl"] #listing {
   width: 100%;
   height: 100%;
 }
+#listing.mosaic.gallery .item .lazy-image {
+  width: 100%;
+  height: 100%;
+}
 
 #listing.gallery .size,
 #listing.gallery .modified {
@@ -255,9 +273,13 @@ html[dir="rtl"] #listing {
   width: 2em;
   height: 2em;
 }
+#listing.list .item div:first-of-type .lazy-image {
+  width: 2em;
+  height: 2em;
+}
 
 #listing.list .item div:last-of-type {
-  width: calc(100% - 3em);
+  /* width: calc(100% - 3em); */
   display: flex;
   align-items: center;
 }

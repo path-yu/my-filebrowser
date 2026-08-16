@@ -248,7 +248,7 @@ func renewHandler(tokenExpireTime time.Duration) handleFunc {
 	})
 }
 
-func printToken(w http.ResponseWriter, _ *http.Request, d *data, user *users.User, tokenExpirationTime time.Duration) (int, error) {
+func printToken(w http.ResponseWriter, r *http.Request, d *data, user *users.User, tokenExpirationTime time.Duration) (int, error) {
 	claims := &authToken{
 		User: userInfo{
 			ID:                    user.ID,
@@ -276,6 +276,27 @@ func printToken(w http.ResponseWriter, _ *http.Request, d *data, user *users.Use
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
+
+	// Write auth cookie so that browser-native requests (<img>, <a>, <link>,
+	// direct address bar navigation) can authenticate preview/raw endpoints
+	// without relying on the X-Auth header (which only fetch/axios can carry).
+	// This avoids the LazyImage fallback of downloading the full image bytes
+	// via fetch → Blob → createObjectURL (which is why the DOM used to show
+	// blob:http://... URLs instead of direct server paths, and why opening a
+	// preview URL in a new browser tab returned 401 Unauthorized).
+	cookiePath := "/"
+	if d.server.BaseURL != "" && d.server.BaseURL != "/" {
+		cookiePath = d.server.BaseURL
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth",
+		Value:    signed,
+		Path:     cookiePath,
+		Expires:  claims.ExpiresAt.Time,
+		HttpOnly: false, // needs to be readable by X-Renew-Token check in JS? Not strictly. Keep false for devtools visibility.
+		Secure:   r != nil && r.TLS != nil,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	w.Header().Set("Content-Type", "text/plain")
 	if _, err := w.Write([]byte(signed)); err != nil {

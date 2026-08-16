@@ -4,6 +4,7 @@ import (
 	"github.com/asdine/storm/v3"
 
 	"github.com/filebrowser/filebrowser/v2/auth"
+	"github.com/filebrowser/filebrowser/v2/filemetacache"
 	"github.com/filebrowser/filebrowser/v2/productcode"
 	"github.com/filebrowser/filebrowser/v2/settings"
 	"github.com/filebrowser/filebrowser/v2/share"
@@ -18,17 +19,19 @@ func NewStorage(db *storm.DB) (*storage.Storage, error) {
 	settingsStore := settings.NewStorage(settingsBackend{db: db})
 	authStore := auth.NewStorage(authBackend{db: db}, userStore)
 	productCodeStore := productcode.NewStorage(productCodeBackend{db: db})
+	fileMetaCacheStore := filemetacache.NewStorage(&fileMetaCacheBackend{db: db})
 
-	err := save(db, "version", 2)
+	err := save(db, "version", 3)
 	if err != nil {
 		return nil, err
 	}
 
 	return &storage.Storage{
-		Auth:        authStore,
-		Users:       userStore,
-		Share:       shareStore,
-		Settings:    settingsStore,
-		ProductCode: productCodeStore,
+		Auth:          authStore,
+		Users:         userStore,
+		Share:         shareStore,
+		Settings:      settingsStore,
+		ProductCode:   productCodeStore,
+		FileMetaCache: fileMetaCacheStore,
 	}, nil
 }

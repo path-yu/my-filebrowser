@@ -25,6 +25,7 @@
     <LazyImage
       ref="lazyRef"
       :src="src"
+      :blurUp="blurUp"
       eager
       fill
       :class="['image-ex-img', imageLoaded ? 'image-ex-img-ready' : 'image-ex-img-center']"
@@ -43,6 +44,8 @@ interface IProps {
   moveDisabledTime?: number;
   classList?: any[];
   zoomStep?: number;
+  /** Progressive blur-up placeholder (data:image/jpeg;base64). */
+  blurUp?: string;
 }
 
 const props = withDefaults(defineProps<IProps>(), {

@@ -327,23 +327,23 @@ onBeforeUnmount(() => {
   editor.value?.destroy();
 });
 
-onBeforeRouteUpdate((to, from, next) => {
+onBeforeRouteUpdate((to, from) => {
   if (editor.value?.session.getUndoManager().isClean()) {
-    next();
-
-    return;
+    return true;
   }
 
-  layoutStore.showHover({
-    prompt: "discardEditorChanges",
-    confirm: (event: Event) => {
-      event.preventDefault();
-      next();
-    },
-    saveAction: async () => {
-      await save();
-      next();
-    },
+  return new Promise<boolean>((resolve) => {
+    layoutStore.showHover({
+      prompt: "discardEditorChanges",
+      confirm: (event: Event) => {
+        event.preventDefault();
+        resolve(true);
+      },
+      saveAction: async () => {
+        await save();
+        resolve(true);
+      },
+    });
   });
 });
 
@@ -408,6 +408,9 @@ const save = async (throwError?: boolean) => {
   try {
     await api.put(route.path, editor.value?.getValue());
     editor.value?.session.getUndoManager().markClean();
+    // 保存成功后标记目录需要刷新：关闭返回列表时能立即看到新的修改时间/文件大小
+    // （Files.vue watch(fileStore.reload) 会在下次进入目录时 fetchData 拉最新数据）
+    fileStore.reload = true;
     buttons.success(button);
   } catch (e: any) {
     buttons.done(button);
