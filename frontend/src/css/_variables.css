@@ -1,0 +1,79 @@
+:root {
+  /* iOS 系统蓝 */
+  --blue: #007aff;
+  --dark-blue: #0062cc;
+  --red: #ff3b30;
+  --dark-red: #d70015;
+  --moon-grey: #f2f2f7;
+
+  --icon-red: #ff453a;
+  --icon-orange: #ff9f0a;
+  --icon-yellow: #ffd60a;
+  --icon-green: #30d158;
+  --icon-blue: #0a84ff;
+  --icon-violet: #bf5af2;
+
+  --input-red: rgba(255, 59, 48, 0.15);
+  --input-green: rgba(52, 199, 89, 0.15);
+
+  --item-selected: white;
+
+  --action: rgb(60, 60, 67);
+
+  /* iOS 亮色模式配色（systemGroupedBackground 体系） */
+  --background: rgb(242, 242, 247);
+  --surfacePrimary: rgb(255, 255, 255);
+  --surfaceSecondary: rgb(229, 229, 234);
+  --divider: rgba(60, 60, 67, 0.08);
+  --iconPrimary: var(--icon-blue);
+  --iconSecondary: rgb(255, 255, 255);
+  --iconTertiary: rgb(199, 199, 204);
+  --textPrimary: rgb(142, 142, 147);
+  --textSecondary: rgb(28, 28, 30);
+  --hover: rgba(0, 0, 0, 0.05);
+  /* iCloud 存储仪表：轨道底色（浅色模式） */
+  --gauge-track: rgba(120, 120, 128, 0.16);
+  --borderPrimary: rgba(60, 60, 67, 0.12);
+  --borderSecondary: rgba(60, 60, 67, 0.24);
+  --dividerPrimary: rgba(255, 255, 255, 0.4);
+  --dividerSecondary: rgba(255, 255, 255, 0.9);
+
+  /* 侧边导航（nav）：浅色模式 = 系统浅灰毛玻璃底 + 半透明分割线 */
+  --nav-bg: rgba(242, 242, 247, 0.82);
+  --nav-border: rgba(60, 60, 67, 0.10);
+  --nav-item-hover: rgba(0, 0, 0, 0.04);
+  --nav-storage-bg: var(--surfacePrimary);
+  --nav-storage-border: var(--divider);
+}
+
+:root.dark {
+  --input-red: rgba(255, 69, 58, 0.25);
+  --input-green: rgba(48, 209, 88, 0.25);
+
+  --action: rgb(235, 235, 245);
+
+  /* iOS 深色模式配色 */
+  --background: rgb(0, 0, 0);
+  --surfacePrimary: rgb(28, 28, 30);
+  --surfaceSecondary: rgb(44, 44, 46);
+  --textPrimary: rgba(235, 235, 245, 0.5);
+  --textSecondary: rgba(235, 235, 245, 0.92);
+  --divider: rgba(84, 84, 88, 0.4);
+  --iconPrimary: rgb(10, 132, 255);
+  --iconSecondary: rgb(255, 255, 255);
+  --iconTertiary: rgb(142, 142, 147);
+  --hover: rgba(255, 255, 255, 0.08);
+  /* iCloud 存储仪表：轨道底色（深色模式） */
+  --gauge-track: rgba(255, 255, 255, 0.12);
+  --borderPrimary: rgba(84, 84, 88, 0.5);
+  --borderSecondary: rgba(84, 84, 88, 0.65);
+  --dividerPrimary: rgba(30, 30, 30, 0.4);
+  --dividerSecondary: rgba(30, 30, 30, 0.6);
+
+  /* 侧边导航（nav）：深色模式 = 深灰毛玻璃底（不再是浅色的白块） */
+  --nav-bg: rgba(22, 22, 24, 0.82);
+  --nav-border: rgba(255, 255, 255, 0.08);
+  --nav-item-hover: rgba(255, 255, 255, 0.07);
+  --nav-storage-bg: rgba(255, 255, 255, 0.05);
+  --nav-storage-border: rgba(255, 255, 255, 0.08);
+}

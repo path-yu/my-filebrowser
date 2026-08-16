@@ -1,0 +1,32 @@
+.context-menu {
+  position: fixed;
+  background: var(--surfacePrimary);
+  min-width: 180px;
+  max-width: 220px;
+  border: 1px solid var(--borderSecondary);
+  box-shadow: 0 2px 4px var(--borderPrimary);
+  z-index: 99999;
+  /* 打开时的轻微过渡（从鼠标点淡入，防止第一次测量前短暂错位闪烁） */
+  transition: opacity 60ms ease-out;
+}
+.context-menu:not([style*="top:"]) {
+  /* 还没算好位置之前先透明隐藏，避免首帧闪烁 */
+  opacity: 0;
+  pointer-events: none;
+}
+.context-menu[style*="top:"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.context-menu .action {
+  display: block;
+  width: 100%;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+}
+
+.context-menu .action .counter {
+  left: 1.75em;
+}

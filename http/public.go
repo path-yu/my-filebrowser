@@ -1,0 +1,175 @@
+package fbhttp
+
+import (
+	"crypto/subtle"
+	"errors"
+	"net/http"
+	"net/url"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"github.com/filebrowser/filebrowser/v2/files"
+	"github.com/filebrowser/filebrowser/v2/share"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var withHashFile = func(fn handleFunc) handleFunc {
+	return func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+		id, ifPath := ifPathWithName(r)
+		link, err := d.store.Share.GetByHash(id)
+		if err != nil {
+			return errToStatus(err), err
+		}
+
+		status, err := authenticateShareRequest(r, link)
+		if status != 0 || err != nil {
+			return status, err
+		}
+
+		user, err := d.store.Users.Get(d.server.Root, link.UserID)
+		if err != nil {
+			return errToStatus(err), err
+		}
+
+		if !user.Perm.Share || !user.Perm.Download {
+			return http.StatusForbidden, nil
+		}
+
+		d.user = user
+		// Save the non-scoped user Fs before rebasing so handlers that need
+		// the real on-disk path (e.g. doc conversion which opens the file by
+		// native path to hand off to Word/LibreOffice) can resolve it via
+		// the original filesystem layer combined with checkerPrefix + path.
+		d.userOriginalFs = d.user.Fs
+
+		file, err := files.NewFileInfo(&files.FileOptions{
+			Fs:         d.user.Fs,
+			Path:       link.Path,
+			Modify:     d.user.Perm.Modify,
+			Expand:     false,
+			ReadHeader: d.server.TypeDetectionByHeader,
+			CalcImgRes: d.server.TypeDetectionByHeader,
+			Checker:    d,
+			Token:      link.Token,
+		})
+		if err != nil {
+			return errToStatus(err), err
+		}
+
+		// share base path
+		basePath := link.Path
+
+		// file relative path
+		filePath := ""
+
+		if file.IsDir {
+			// link.Path is a virtual (URL-style) path, so clean it with path,
+			// not filepath: on Windows filepath.Clean would turn "/projects"
+			// into "\projects", which then never matches user rules written
+			// with forward slashes — silently bypassing every deny rule.
+			basePath = path.Clean(link.Path)
+			filePath = ifPath
+		}
+
+		// set fs root to the shared file/folder. ScopedFs (not a bare
+		// BasePathFs) so the share is also symlink-confined: a link inside the
+		// shared subtree that points elsewhere in the owner's scope — outside
+		// the share — must not be followed.
+		d.user.Fs = files.NewScopedFs(d.user.Fs, basePath)
+
+		// the filesystem is now rebased onto basePath, so paths handed to the
+		// rule checker are relative to it. Resolve them back to the user's
+		// original scope so deny rules below the share root keep applying.
+		d.checkerPrefix = basePath
+
+		file, err = files.NewFileInfo(&files.FileOptions{
+			Fs:      d.user.Fs,
+			Path:    filePath,
+			Modify:  d.user.Perm.Modify,
+			Expand:  true,
+			Checker: d,
+			Token:   link.Token,
+		})
+		if err != nil {
+			return errToStatus(err), err
+		}
+
+		if file.IsDir {
+			// extract name from the last directory in the path
+			name := filepath.Base(strings.TrimRight(link.Path, string(filepath.Separator)))
+			file.Name = name
+		}
+
+		d.raw = file
+		return fn(w, r, d)
+	}
+}
+
+// ref to https://github.com/filebrowser/filebrowser/pull/727
+// `/api/public/dl/MEEuZK-v/file-name.txt` for old browsers to save file with correct name
+func ifPathWithName(r *http.Request) (id, filePath string) {
+	pathElements := strings.Split(r.URL.Path, "/")
+	// prevent maliciously constructed parameters like `/api/public/dl/XZzCDnK2_not_exists_hash_name`
+	// len(pathElements) will be 1, and golang will panic `runtime error: index out of range`
+
+	switch len(pathElements) {
+	case 1:
+		return r.URL.Path, "/"
+	default:
+		return pathElements[0], path.Join("/", path.Join(pathElements[1:]...))
+	}
+}
+
+var publicShareHandler = withHashFile(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	file := d.raw.(*files.FileInfo)
+
+	if file.IsDir {
+		file.Sorting = files.Sorting{By: "name", Asc: false}
+		file.ApplySort()
+		return renderJSON(w, r, file)
+	}
+
+	return renderJSON(w, r, file)
+})
+
+var publicDlHandler = withHashFile(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	file := d.raw.(*files.FileInfo)
+	if !file.IsDir {
+		return rawFileHandler(w, r, file)
+	}
+
+	return rawDirHandler(w, r, d, file)
+})
+
+func authenticateShareRequest(r *http.Request, l *share.Link) (int, error) {
+	if l.PasswordHash == "" {
+		return 0, nil
+	}
+
+	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("token")), []byte(l.Token)) == 1 {
+		return 0, nil
+	}
+
+	password := r.Header.Get("X-SHARE-PASSWORD")
+	password, err := url.QueryUnescape(password)
+	if err != nil {
+		return 0, err
+	}
+	if password == "" {
+		return http.StatusUnauthorized, nil
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(l.PasswordHash), []byte(password)); err != nil {
+		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+			return http.StatusUnauthorized, nil
+		}
+		return 0, err
+	}
+
+	return 0, nil
+}
+
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"OK"}`))
+}

@@ -1,0 +1,42 @@
+.input {
+  background: var(--surfaceSecondary);
+  color: var(--textSecondary);
+  border: 1px solid transparent;
+  /* iOS 输入框圆角 */
+  border-radius: 10px;
+  padding: 0.7em 1em;
+  transition: 0.2s ease all;
+  margin: 0;
+  font-size: 1em;
+}
+
+.input:hover,
+.input:focus {
+  border-color: var(--blue);
+  background: var(--surfacePrimary);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.input--block {
+  margin-bottom: 0.75em;
+  display: block;
+  width: 100%;
+}
+
+.input--textarea {
+  line-height: 1.15;
+  font-family: monospace;
+  min-height: 10em;
+  resize: vertical;
+}
+
+.input--red {
+  background: var(--input-red) !important;
+}
+
+.input--green {
+  background: var(--input-green) !important;
+}

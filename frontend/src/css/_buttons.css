@@ -1,0 +1,82 @@
+.button {
+  outline: 0;
+  border: 0;
+  padding: 0.65em 1.4em;
+  /* iOS 胶囊按钮 */
+  border-radius: 980px;
+  cursor: pointer;
+  background: var(--blue);
+  color: white;
+  border: none;
+  box-shadow: none;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    0.15s ease all,
+    transform 0.08s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.button:hover {
+  background-color: var(--dark-blue);
+  filter: brightness(0.96);
+}
+
+/* iOS 按钮按压反馈 */
+.button:active {
+  transform: scale(0.97);
+  filter: brightness(0.9);
+}
+
+.button--block {
+  margin: 0 0 0.5em;
+  display: block;
+  width: 100%;
+}
+
+.button--red {
+  background: var(--red);
+}
+
+.button--red:hover {
+  background: var(--dark-red);
+}
+
+.button--blue {
+  background: var(--blue);
+}
+
+/* iOS 风格文字按钮（类似 iOS 的 "取消/完成" 文字按钮） */
+.button--flat {
+  color: var(--blue);
+  background: transparent;
+  box-shadow: 0 0 0;
+  border: 0;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.button--flat:hover {
+  background: var(--hover);
+}
+
+.button--flat:active {
+  transform: scale(0.97);
+}
+
+.button--flat.button--red {
+  color: var(--red);
+}
+
+.button--flat.button--grey {
+  color: #8e8e93;
+}
+
+.button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button[disabled]:active {
+  transform: none;
+}

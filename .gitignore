@@ -1,0 +1,47 @@
+*.db
+*.bak
+_old
+rice-box.go
+.idea/
+/filebrowser
+/filebrowser.exe
+/filebrowser-new.exe
+/dist
+.venv
+
+# 构建产物与发布包
+*.zip
+release-*/
+
+# 日志文件
+*.log
+
+.DS_Store
+node_modules
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw*
+bin/
+build/
+
+# Vue distributable files
+/frontend/dist/*
+!/frontend/dist/.gitkeep
+
+default.nix
+Dockerfile.dev

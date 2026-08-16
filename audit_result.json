@@ -1,0 +1,107 @@
+﻿[
+    {
+        "Test":  "unauth /resources -\u003e 401?",
+        "Result":  true,
+        "Detail":  "got 401"
+    },
+    {
+        "Test":  "login admin",
+        "Result":  true,
+        "Detail":  "token len 605"
+    },
+    {
+        "Test":  "login bob",
+        "Result":  true,
+        "Detail":  "ok"
+    },
+    {
+        "Test":  "login wrong pwd rejected",
+        "Result":  true,
+        "Detail":  "got 403"
+    },
+    {
+        "Test":  "fake jwt rejected",
+        "Result":  true,
+        "Detail":  "got 401"
+    },
+    {
+        "Test":  "jwt alg=none rejected",
+        "Result":  true,
+        "Detail":  "got 401"
+    },
+    {
+        "Test":  "bob GET /users forbidden",
+        "Result":  true,
+        "Detail":  "got 403"
+    },
+    {
+        "Test":  "bob PUT admin user forbidden",
+        "Result":  true,
+        "Detail":  "got 403"
+    },
+    {
+        "Test":  "bob GET /settings forbidden",
+        "Result":  true,
+        "Detail":  "got 403"
+    },
+    {
+        "Test":  "traversal blocked: /api/resources/../../",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "traversal blocked: /api/resources/%2e%2e%2f%2e%2e%2f",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "traversal blocked: /api/resources/..%2f..%2f",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "traversal blocked: /api/raw/../../go.mod",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "traversal blocked: /api/raw/%2e%2e%2fgo.mod",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "create share",
+        "Result":  true,
+        "Detail":  "hash=09y5Yj9_"
+    },
+    {
+        "Test":  "share no-pwd rejected",
+        "Result":  true,
+        "Detail":  "got 401"
+    },
+    {
+        "Test":  "share wrong-pwd rejected",
+        "Result":  true,
+        "Detail":  "got 401"
+    },
+    {
+        "Test":  "share traversal blocked",
+        "Result":  true,
+        "Detail":  "got 404"
+    },
+    {
+        "Test":  "bob delete foreign share forbidden",
+        "Result":  true,
+        "Detail":  "got 403"
+    },
+    {
+        "Test":  "signup disabled",
+        "Result":  true,
+        "Detail":  "got 405"
+    },
+    {
+        "Test":  "GET /resources avg ms (20x)",
+        "Result":  true,
+        "Detail":  "avg=9.2ms min=8ms max=12ms"
+    }
+]

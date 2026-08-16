@@ -1,0 +1,2436 @@
+/* ============================================================
+   iOS 风格 UI 覆盖层
+   文件管理系统 — 基于 iOS Human Interface Guidelines
+   ============================================================ */
+
+/* ---------- 卡片：iOS 圆角 + 柔和阴影 ---------- */
+.card {
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--divider);
+}
+
+.card.floating {
+  border-radius: 14px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+/* 弹窗背景：iOS 遮罩（毛玻璃化） */
+.overlay {
+  background-color: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* 基础弹窗（BaseModal）遮罩 */
+#modal-background {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ---------- 移动端下拉菜单 / 多选操作条 ---------- */
+@media (max-width: 736px) {
+  #dropdown {
+    border-radius: 12px;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 16px 32px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
+  }
+
+  #file-selection {
+    border-radius: 12px;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 12px 24px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* ---------- iOS 原生控件着色 ---------- */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--blue);
+  width: 1.1em;
+  height: 1.1em;
+  cursor: pointer;
+}
+
+select,
+select.input {
+  background: var(--surfaceSecondary);
+  color: var(--textSecondary);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.5em 2em 0.5em 1em;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8em center;
+}
+
+select:hover,
+select.input:hover {
+  border-color: var(--blue);
+}
+
+select option {
+  background: var(--surfacePrimary);
+  color: var(--textSecondary);
+}
+
+/* ---------- 卡片操作按钮网格 ---------- */
+.card .card-action.full .action {
+  border-radius: 12px;
+  border: 1px solid var(--divider);
+  background: var(--surfacePrimary);
+  transition: 0.15s ease all;
+}
+
+.card .card-action.full .action:hover {
+  background: var(--surfaceSecondary);
+}
+
+/* ---------- 磁盘使用进度条 ---------- */
+.vue-simple-progress {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surfaceSecondary);
+}
+
+.vue-simple-progress-bar {
+  border-radius: 8px;
+}
+
+/* ---------- 折叠面板 ---------- */
+.collapsible > label {
+  border-radius: 10px;
+  transition: 0.15s ease background;
+}
+
+.collapsible > label:hover {
+  background: var(--hover);
+}
+
+/* ---------- 代码片段 ---------- */
+li code,
+p code {
+  background: var(--surfaceSecondary);
+  border-radius: 6px;
+  padding: 0.15em 0.4em;
+}
+
+/* ---------- 头部导航标题（iOS 粗体） ---------- */
+header title {
+  font-weight: 600;
+  color: var(--textSecondary);
+  font-size: 1.1em;
+}
+
+/* ---------- 更多菜单分隔 ---------- */
+.action ul {
+  background: var(--surfacePrimary);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 16px 32px rgba(0, 0, 0, 0.14);
+}
+
+.action ul li {
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+
+.action ul li:hover {
+  background: var(--hover);
+}
+
+/* ---------- 文件列表 ---------- */
+/* 网格视图：iOS 圆角卡片 */
+#listing.mosaic .item {
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 10px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--divider);
+  transition:
+    0.15s ease transform,
+    0.15s ease box-shadow,
+    0.1s ease background;
+}
+
+#listing.mosaic .item:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 列表视图：iOS 分组列表风格
+   注意：这里必须用 overflow: clip 而非 hidden ——
+   hidden 会把 #listing 变成滚动容器，表头 sticky 只能相对它吸附（而它自身不滚动），
+   导致非预览模式下吸顶失效；clip 同样裁剪圆角溢出，但不创建滚动容器，
+   sticky 子元素可正常相对视口吸附。 */
+#listing.list {
+  border-radius: 12px;
+  overflow: clip;
+  background: var(--surfacePrimary);
+  border: 1px solid var(--divider);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+#listing.list .item {
+  border-color: var(--divider);
+  /* 创建层叠上下文：让 ::after 胶囊(z-index:-1) 垫在文字下、容器底色上 */
+  isolation: isolate;
+}
+
+#listing.list .item.header {
+  background: var(--surfaceSecondary);
+}
+
+/* 列表行 hover：微弱灰色圆角垫底（Finder 风格内缩胶囊）
+ * 排除已选中项和当前预览高亮项：它们已有专属 ::after 胶囊，
+ * 两者特异性相同，若不排除会被 hover 规则覆盖造成"选中后样式异常" */
+#listing.list .item:not(.header):not([aria-selected="true"]):not(.preview-highlight):hover::after {
+  content: "";
+  position: absolute;
+  inset: 3px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+  z-index: -1;
+}
+
+:root.dark #listing.list .item:not(.header):not([aria-selected="true"]):not(.preview-highlight):hover::after {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* 选中态：#007AFF 胶囊高亮块（留出内边距，不随布局位移） */
+#listing .item[aria-selected="true"] {
+  background: #007aff !important;
+  color: #fff !important;
+}
+
+/* 列表视图：选中改为内缩胶囊（::after 垫底，文字置于其上） */
+#listing.list .item[aria-selected="true"] {
+  background: transparent !important;
+}
+
+#listing.list .item[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 3px 6px;
+  border-radius: 8px;
+  background: #007aff;
+  z-index: -1;
+}
+
+/* 文件/文件夹图标圆角 */
+#listing .item img {
+  border-radius: 8px;
+}
+
+/* ============================================================
+   预览视图（左列表 + 右预览面板）
+   ============================================================ */
+.files-layout {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.files-layout.with-preview {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  padding-right: 0 !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  padding-left: 0 !important;
+  box-sizing: border-box;
+  /* 外壳固定高度并禁止滚动：使 listing-area / preview-pane 成为两个独立滚动容器 */
+  height: calc(100vh - 180px) !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+.files-layout.with-preview > .listing-area {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0 !important;
+  max-width: calc(100% - 380px - 12px);
+  height: auto !important;
+  /* overflow: auto !important; */
+  /* overscroll-behavior: contain; */
+  padding: 0 8px 8px 0;
+  box-sizing: border-box;
+}
+
+/* ---------- 列表表头吸顶 ----------
+   sticky 必须加在 .item.header 的包裹 div 上（#listing 的直接子元素），
+   加在 .item.header 自身无效：其父容器高度 = 表头高度，没有滚动行程。 */
+#listing.list > div:first-child {
+  position: sticky;
+  /* 非预览模式：整页滚动，吸附于固定顶栏(4em) + 吸顶面包屑(3em) 之下 */
+  top: 0;
+  z-index: 900; /* 低于面包屑 z-index:1000，避免遮挡 */
+}
+/* 预览模式：listing-area 自身为滚动容器，表头直接吸顶（需带 #listing ID 以覆盖上面的 top:7em） */
+.files-layout.with-preview > #listing.list > div:first-child {
+  top: 0 ;
+  z-index: 20;
+}
+
+/* ---------- 面包屑行：左边面包屑，右侧筛选组（类型+时间紧挨） ---------- */
+/* 吸顶条毛玻璃（macOS Toolbar 质感）：半透明底 + backdrop blur */
+.breadcrumbs-row {
+  display: flex;
+  align-items: center;
+  /* 不再用 space-between：改为让筛选组自己 margin-left:auto 靠右，
+     这样两个筛选下拉不会被分散到两端中间，而是紧挨成一组在最右边 */
+  justify-content: flex-start;
+  gap: 12px;
+  height: 3em;
+  background: rgba(242, 242, 247, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--divider);
+  position: sticky;
+  z-index: 1000;
+  top: 4em;
+  padding: 0 0;
+}
+
+:root.dark .breadcrumbs-row {
+  background: rgba(10, 10, 12, 0.78);
+}
+
+/* 非文件页（设置页等）的吸顶面包屑条同样毛玻璃化 */
+.breadcrumbs {
+  background: rgba(242, 242, 247, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+:root.dark .breadcrumbs {
+  background: rgba(10, 10, 12, 0.78);
+}
+
+/* 筛选下拉组：两个筛选紧挨成一组，通过 margin-left:auto 整体推到最右端 */
+.breadcrumbs-row > .breadcrumbs-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.breadcrumbs-row > .breadcrumbs {
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  position: static;
+  z-index: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.breadcrumbs-filter {
+  flex: 0 0 auto;
+}
+
+/* 提高选择器优先级（双 class），确保覆盖组件 scoped 样式 */
+.breadcrumbs-filter .macos-select__trigger.macos-select__trigger {
+  height: 32px;
+  min-width: 120px;
+  font-size: 0.92em;
+  background: var(--surfaceSecondary);
+}
+
+.breadcrumbs-filter .macos-select__trigger.macos-select__trigger:hover {
+  background: var(--surfacePrimary);
+}
+
+/* 右侧预览面板：iOS 毛玻璃圆角卡片 */
+.files-layout.with-preview > .preview-pane {
+  flex: 0 0 380px;
+  min-width: 320px;
+  max-width: 30vw;
+  min-height: 0 !important;
+  height: auto !important;
+  background: var(--surfacePrimary) !important;
+  border: 1px solid var(--divider) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  display: flex !important;
+  flex-direction: column !important;
+  /* 面板外壳本身不滚动，内部 preview-pane__body / preview-word-scroll 独立滚动 */
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+html.dark .files-layout.with-preview > .preview-pane {
+  background: rgba(28, 28, 30, 0.9) !important;
+  border-color: rgba(84, 84, 88, 0.6) !important;
+}
+
+/* 预览面板头：图标 + 名称 + 信息 */
+.preview-pane__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--divider);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 100;
+  background: var(--surfacePrimary);
+}
+.preview-pane__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surfaceSecondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  flex: 0 0 44px;
+}
+.preview-pane__icon .material-icons {
+  font-size: 24px;
+  line-height: 1;
+}
+.preview-pane__meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.preview-pane__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--textPrimary);
+  line-height: 1.35;
+  /* 长文件名单行省略 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-pane__sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--textSecondary);
+  line-height: 1.4;
+}
+
+/* 预览面板主体：居中 + 内边距 */
+.preview-pane__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 图片预览：自适应 + 圆角阴影 */
+.preview-pane__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.1);
+  background: var(--surfaceSecondary);
+}
+/* 占位：大图标 + 说明文字 */
+.preview-pane__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  width: 100%;
+}
+.preview-pane__big-icon {
+  font-size: 80px !important;
+  line-height: 1 !important;
+  width: 96px;
+  height: 96px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: var(--textTertiary, #8E8E93);
+  opacity: 0.88;
+}
+.preview-pane__hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--textSecondary);
+  line-height: 1.5;
+  max-width: 240px;
+}
+/* 空态：未选中文件时的 iOS 空样式 */
+.preview-pane__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 20px;
+  color: var(--textTertiary, #8E8E93);
+  width: 100%;
+  height: 100%;
+}
+.preview-pane__empty > i {
+  font-size: 56px !important;
+  line-height: 1 !important;
+  opacity: 0.9;
+}
+.preview-pane__empty > p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--textSecondary);
+}
+
+/* ---------- 底部多选操作栏（iOS 风格） ---------- */
+#listing #multiple-selection {
+  background: var(--blue);
+  border-radius: 16px 16px 0 0;
+  /* box-shadow: 0 -4px 20px rgba(0, 122, 255, 0.3); */
+}
+
+/* ---------- 导航侧边栏（毛玻璃 + 苹果蓝选中态） ----------
+   注意：base.css 已定义 `nav { position: fixed; top: 4em; left: 0; width: 16em; }`。
+   配色完全走 CSS 变量体系（--nav-bg / --nav-border / --nav-item-hover / --nav-storage-*），
+   在 :root / :root.dark 各自覆盖一套，天然兼顾浅/深色两种"兼容模式"，
+   不再把浅灰背景硬编码成固定 rgba 导致 dark 主题下出现反差白底。 */
+nav {
+  width: 16em;
+  /* 毛玻璃模糊，颜色由 CSS 变量按主题提供 */
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  background: var(--nav-bg, rgba(242, 242, 247, 0.82));
+  /* 右侧一条细分隔线，便于在浅色模式下与白色内容区区分 */
+  border-inline-end: 1px solid var(--nav-border, rgba(60, 60, 67, 0.1));
+}
+
+nav .action {
+  border-radius: 6px;
+  margin: 2px 8px;
+  width: calc(100% - 16px);
+}
+
+/* 未选中项：悬停微弱垫底（悬停透明度由主题变量决定） */
+nav .action:not(.active):hover {
+  background: var(--nav-item-hover, rgba(0, 0, 0, 0.04));
+}
+
+/* 选中项（Active）：苹果经典蓝 + 纯白文字图标 */
+nav .action.active {
+  background: var(--blue);
+  color: #ffffff;
+  border-radius: 6px;
+}
+
+nav .action.active i.material-icons {
+  color: #ffffff;
+}
+
+nav .action.active:hover {
+  background: var(--blue);
+}
+
+nav > div {
+  border-top: 1px solid var(--nav-border, var(--divider));
+  margin: 0 8px;
+}
+
+/* ---------- iCloud 风格存储容量区 ---------- */
+nav .storage-section {
+  margin: auto 12px 0.8em;
+  padding: 0.9em 0.6em 0.8em;
+  border-radius: 12px;
+  background: var(--nav-storage-bg, var(--surfacePrimary));
+  border: 1px solid var(--nav-storage-border, var(--divider));
+  width: auto;
+}
+
+nav .storage-section .storage-text {
+  margin: 0.45em 0 0;
+  font-size: 0.75em;
+  text-align: center;
+  color: var(--textPrimary);
+  line-height: 1.4;
+}
+
+/* ---------- 导航栏折叠/展开按钮：右侧垂直居中（macOS 抽屉风格） ----------
+   注意：按钮完全落在 nav 的 20px 右外边距里，绝不出 nav 盒子，
+   因此不会挤压或遮挡右侧 <main> 的任何内容。nav 宽度 16em，
+   <main> 本身是 calc(100% - 19em)，这 3em 的 gap 正好容纳我们的按钮 */
+nav .sidebar-collapse-btn {
+  position: absolute;
+  right: 0;                 /* 按钮左对齐 nav 右边界线（按钮 32px 正好落在 16em→19em 的 gap 内） */
+  top: 50%;
+  transform: translate(50%, -50%); /* 再右推半宽，让圆心正好在 nav 右边框线上 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  background: var(--surfacePrimary);
+  color: var(--textSecondary);
+  cursor: pointer;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+  z-index: 10;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.1s ease,
+    box-shadow 0.18s ease;
+}
+nav .sidebar-collapse-btn:hover {
+  background: var(--hover);
+  color: var(--textPrimary);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+}
+nav .sidebar-collapse-btn:active {
+  /* 保留 translate(50%, -50%) 圆心基准，再叠加 scale，不发生视觉位移 */
+  transform: translate(50%, -50%) scale(0.94);
+}
+nav .sidebar-collapse-btn .material-icons {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* 折叠态：保持同一锚点（right: 0 + translate(50%,-50%)），
+   只是收窄 nav 宽度到 72px — 按钮依旧贴在 nav 右边框中间，
+   完全落在 collapsed 状态 72px 宽度 + <main> 剩余宽度的 gap 内 */
+nav.collapsed .sidebar-collapse-btn {
+  right: 0;
+  transform: translate(50%, -50%);
+  margin: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+nav.collapsed .sidebar-collapse-btn:active {
+  transform: translate(50%, -50%) scale(0.94);
+}
+nav.collapsed {
+  width: 72px !important;
+}
+nav.collapsed .action {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  margin: 2px auto !important;
+  border-radius: 10px;
+}
+nav.collapsed .action i.material-icons {
+  margin: 0 !important;
+}
+nav.collapsed .action span,
+nav.collapsed p.credits,
+nav.collapsed .credits,
+nav.collapsed progress-bar,
+nav.collapsed progress,
+nav.collapsed br {
+  display: none !important;
+}
+/* 折叠后包装 credits/progress 的块隐藏 */
+nav.collapsed > div.credits-wrapper,
+nav.collapsed > p.credits {
+  display: none !important;
+}
+
+/* 当左侧折叠时，main { width: calc(100% - 19em) } → 改为以 collapsed 宽度让出空间，
+   桌面端（>1024px）才生效，移动端用 mobile.css 已经全屏处理 */
+@media (min-width: 1025px) {
+  .sidebar-collapsed main {
+    width: calc(100% - 72px - 2em) !important;
+  }
+}
+
+/* ---------- 面包屑 ---------- */
+.breadcrumbs {
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  background: rgba(242, 242, 247, 0.85);
+}
+
+:root.dark .breadcrumbs {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.breadcrumbs a {
+  border-radius: 7px;
+  padding: 0.35em 0.5em;
+}
+
+.breadcrumbs a:hover {
+  background: var(--hover);
+}
+
+/* ---------- 搜索框（iOS 搜索栏） ---------- */
+#search #input {
+  border-radius: 10px;
+  background: var(--surfaceSecondary);
+}
+
+#search.active #input {
+  background: var(--surfacePrimary);
+}
+
+#search .boxes {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--divider);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+#search .boxes > div > div {
+  background: var(--surfaceSecondary);
+  color: var(--textSecondary);
+  border-radius: 10px;
+  transition: 0.15s ease all;
+}
+
+#search .boxes > div > div:hover {
+  background: var(--hover);
+}
+
+#search .boxes i {
+  color: var(--blue) !important;
+}
+
+/* ---------- 上传/进度条 ---------- */
+.progress div {
+  background-color: var(--blue);
+}
+
+/* ---------- 桌面仪表盘标签页 ---------- */
+.dashboard #nav ul li.active {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ---------- 文件列表弹窗 ---------- */
+.file-list li {
+  border-radius: 8px;
+}
+
+.file-list li[aria-selected="true"] {
+  background: var(--blue) !important;
+  color: #fff !important;
+}
+
+/* ---------- 表格 ---------- */
+table tr {
+  border-bottom: 1px solid var(--divider);
+}
+
+/* ---------- 下拉/右键菜单（iOS 弹层） ---------- */
+.context-menu,
+#dropdown {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 16px 32px rgba(0, 0, 0, 0.14);
+}
+
+/* ---------- macOS 悬浮滚动条：极细、悬停滚动区域时才浮现 ---------- */
+/* Firefox：细滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+:root.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+/* WebKit：轨道全透明，thumb 默认隐形 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  /* 2px 透明描边让 thumb 视觉宽度仅 4px（极细） */
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+/* 悬停滚动容器（或其子元素）时浮现滚动条 */
+*:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.28);
+}
+
+*:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+:root.dark *:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+:root.dark *:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- 深色模式毛玻璃调整 ---------- */
+:root.dark header {
+  background: rgba(22, 22, 24, 0.72);
+}
+
+:root.dark #search #input {
+  background: var(--surfaceSecondary);
+}
+
+:root.dark #search .boxes > div > div {
+  background: var(--surfaceSecondary);
+}
+
+/* ---------- 空状态图标颜色 ---------- */
+.message i {
+  color: var(--iconTertiary);
+}
+
+/* ---------- Toast 圆角 ---------- */
+.Vue-Toastification__toast {
+  border-radius: 12px !important;
+}
+
+/* ---------- 选中文字 ---------- */
+::selection {
+  background: rgba(0, 122, 255, 0.25);
+}
+
+/* ============================================================
+   iOS 深化设计（基于 building-native-ui / Apple HIG）
+   SegmentedControl、Sheet、按压反馈、连续曲线圆角
+   ============================================================ */
+
+/* ---------- iOS SegmentedControl 分段控件（视图切换） ---------- */
+.view-segment {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surfaceSecondary);
+  border-radius: 9px;
+  padding: 2px;
+  margin-right: 0.75em;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.view-segment__item {
+  border: 0;
+  background: transparent;
+  color: var(--textPrimary);
+  border-radius: 7px;
+  padding: 0.3em 0.55em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.18s ease all;
+}
+
+.view-segment__item i {
+  font-size: 1.15rem;
+}
+
+.view-segment__item:hover {
+  color: var(--textSecondary);
+}
+
+/* 选中项：iOS 分段控件白色滑块 */
+.view-segment__item.active {
+  background: var(--surfacePrimary);
+  color: var(--blue);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+:root.dark .view-segment__item.active {
+  background: var(--surfaceSecondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- iOS Sheet：移动端底部弹出弹窗 ---------- */
+@media (max-width: 736px) {
+  .card.floating {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+    max-height: 92%;
+    border-radius: 20px 20px 0 0;
+    border-bottom: 0;
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.25);
+    animation: 0.32s cubic-bezier(0.32, 0.72, 0, 1) ios-sheet-up;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* grabber 把手 */
+  .card.floating::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--iconTertiary);
+    margin: -0.6em auto 0.4em;
+    flex: 0 0 auto;
+  }
+
+  .card.floating {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 内容区滚动 */
+  .card.floating > div {
+    overflow-y: auto;
+  }
+}
+
+@keyframes ios-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 桌面端弹窗：连续曲线圆角 + 微缩放进入 */
+@media (min-width: 737px) {
+  .card.floating {
+    border-radius: 20px;
+    animation: 0.22s ease-out ios-modal-scale;
+    padding: 1.4em 1.6em 1.2em;
+    min-width: 18em;
+  }
+}
+
+@keyframes ios-modal-scale {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ---------- iOS 按压反馈（haptics 视觉模拟） ---------- */
+.button:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.action:active i {
+  transform: scale(0.85);
+  background: var(--hover);
+}
+
+#listing .item:active {
+  opacity: 0.75;
+}
+
+nav .action:active {
+  background: var(--hover);
+  transform: scale(0.98);
+}
+
+/* ---------- 连续曲线圆角（borderCurve: continuous 近似） ---------- */
+#listing.mosaic .item,
+.card,
+.share__box,
+.context-menu,
+#dropdown,
+.view-segment,
+.breadcrumbs a {
+  border-radius: 12px 12px 12px 12px / 14px 14px 14px 14px;
+}
+
+/* 折叠面板 hover 圆角微调 */
+.collapsible {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ---------- 设置页分组（iOS Settings 风格分隔） ---------- */
+.dashboard .card {
+  border-radius: 14px;
+}
+
+.dashboard .card .card-title h2 {
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.dashboard .card h3 {
+  text-transform: none;
+  font-weight: 500;
+  color: var(--textPrimary);
+}
+
+/* ============================================================
+   弹窗深度 iOS 化（所有 prompt 组件）
+   ============================================================ */
+
+/* 弹窗标题：iOS 风格加粗 + 略大字号 */
+.card.floating .card-title h2 {
+  font-size: 1.15em;
+  font-weight: 600;
+  color: var(--textSecondary);
+  margin: 0;
+  padding: 0 0 0.1em;
+}
+
+/* 弹窗内容内边距 */
+.card.floating .card-content {
+  padding: 0.6em 0 1em;
+  color: var(--textPrimary);
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
+.card.floating .card-content p {
+  margin: 0 0 0.7em;
+}
+
+/* 弹窗按钮区：iOS 弹窗标准 - 按钮右对齐、有间距 */
+.card.floating .card-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4em;
+  padding: 0.6em 0 0;
+  border-top: 0;
+  flex-wrap: wrap;
+}
+
+/* 弹窗按钮：iOS 文字按钮（蓝/灰/红） */
+.card.floating .card-action .button {
+  margin: 0;
+  padding: 0.55em 1em;
+  font-size: 0.95em;
+  font-weight: 500;
+  border-radius: 8px;
+  min-height: 36px;
+}
+
+/* 弹窗按钮按压反馈 */
+.card.floating .card-action .button--flat:hover {
+  background: var(--hover);
+}
+
+.card.floating .card-action .button--flat.button--red:hover {
+  background: rgba(255, 59, 48, 0.12);
+}
+
+/* 弹窗主操作按钮（带 .button--blue 或无后缀的默认蓝） */
+.card.floating .card-action .button:not(.button--flat) {
+  background: var(--blue);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.55em 1.2em;
+}
+
+.card.floating .card-action .button:not(.button--flat):hover {
+  background: var(--dark-blue);
+}
+
+/* 弹窗内输入框：iOS 圆角灰底 */
+.card.floating .input {
+  font-size: 1em;
+  margin-bottom: 0.5em;
+}
+
+/* 带 Copy 等容器的特殊弹窗：Copy 弹窗底部有三按钮，间距保留 */
+.card.floating .card-action .button + .button {
+  margin-left: 0;
+}
+
+/* ========== iOS Settings 风格：选中态橙色/蓝色 ========== */
+
+/* ============================================================
+   iOS 风格 Toast 通知（vue-toastification）
+   ============================================================ */
+
+/* Toast 容器：iOS 底部弹出 + 圆角 + 黑色半透明 + 毛玻璃 */
+.Vue-Toastification__toast {
+  border-radius: 14px !important;
+  background: rgba(28, 28, 30, 0.92) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  color: #fff !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  padding: 14px 18px !important;
+  min-height: 50px !important;
+  font-size: 0.95em !important;
+  font-weight: 500 !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 成功：iOS 绿色 */
+.Vue-Toastification__toast--success {
+  background: rgba(48, 209, 88, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* 错误：iOS 红色 */
+.Vue-Toastification__toast--error {
+  background: rgba(255, 69, 58, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* 警告：iOS 橙色 */
+.Vue-Toastification__toast--warning {
+  background: rgba(255, 159, 10, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* 信息：iOS 蓝 */
+.Vue-Toastification__toast--info {
+  background: rgba(10, 132, 255, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* 默认 toast：iOS 黑色 */
+.Vue-Toastification__toast--default {
+  background: rgba(28, 28, 30, 0.92) !important;
+}
+
+/* Toast 文字与按钮 */
+.Vue-Toastification__toast-body {
+  color: #fff !important;
+  font-size: 0.95em !important;
+  line-height: 1.4 !important;
+}
+
+.Vue-Toastification__icon {
+  margin-right: 10px !important;
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  color: #fff !important;
+  font-size: 18px !important;
+}
+
+.Vue-Toastification__close-button {
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin-left: 10px !important;
+  font-size: 1.2em !important;
+  cursor: pointer !important;
+}
+
+.Vue-Toastification__progress-bar {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* 下方容器：iOS 浮动位置 */
+.Vue-Toastification__container.bottom-center {
+  bottom: 1.5em !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: auto !important;
+  max-width: 90% !important;
+}
+
+.Vue-Toastification__container.bottom-center .Vue-Toastification__toast {
+  margin-bottom: 0.5em !important;
+}
+
+/* ============================================================
+   卡片圆角统一（iOS 风格 12-14px）
+   ============================================================ */
+
+/* 所有 .card 元素：12px 圆角（更高一致性） */
+.card {
+  border-radius: 12px !important;
+}
+
+.card.floating {
+  border-radius: 14px !important;
+}
+
+/* 仪表盘卡片 */
+.dashboard .card {
+  border-radius: 14px !important;
+}
+
+/* 文件信息卡片 */
+#listing.list,
+#listing.mosaic {
+  border-radius: 12px !important;
+}
+
+/* 弹窗内分组小卡片 */
+.card > div,
+.card-content {
+  border-radius: inherit;
+}
+
+/* 搜索框分组 */
+#search .boxes {
+  border-radius: 12px !important;
+}
+
+/* 分享弹窗 */
+.share__box {
+  border-radius: 14px !important;
+}
+
+/* 协作卡片 */
+.collapsible {
+  border-radius: 10px !important;
+}
+
+/* ============================================================
+   数字输入框 vue-number-input（iOS 风格）
+   ============================================================ */
+
+.vue-number-input {
+  border-radius: 0 !important;
+  overflow: visible !important;
+  /* 关键：清除 vue-number-input 组件自身容器的丑陋蓝色边框/背景！
+     包括 :focus / :focus-within / :active / :hover 所有状态的 outline 与 box-shadow */
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  /* iOS 分享弹窗 .input-group 会被设置 font-size:0 (inline-block 去间距技巧)，
+     导致子组件继承得到 0px 字体。这里显式恢复基础字号，并且让内部所有子元素
+     都 inherit 这个字号（覆盖 0px 继承）。 */
+  font-size: 16px !important;
+  flex: 1 1 auto;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+}
+/* 所有焦点状态下容器都绝对不能出现蓝框 */
+.vue-number-input:focus,
+.vue-number-input:focus-within,
+.vue-number-input:active,
+.vue-number-input:hover {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.vue-number-input *,
+.vue-number-input *::before,
+.vue-number-input *::after {
+  font-size: inherit !important;
+  /* 子元素默认禁止继承 outline，避免诡异蓝边传播 */
+  outline: none !important;
+}
+
+.vue-number-input > input {
+  border-radius: 10px !important;
+  /* 按钮、数字框、下拉三控件统一使用输入框背景色，和右侧小时下拉完全一致，
+     视觉上就是一排"等高等背景"的 iOS 分段控件，不突兀 */
+  background: var(--surfaceSecondary) !important;
+  border: 1px solid transparent !important;
+  color: var(--textPrimary) !important;
+  padding: 0 12px !important;
+  /* 固定尺寸 + 字号：不再用被父容器压为 0 的相对单位 */
+  font-size: 15px !important;
+  line-height: 1 !important;
+  height: 36px !important;
+  min-width: 56px !important;
+  width: auto !important;
+  text-align: center !important;
+  /* 防止继承 font-size:0 导致文字透明 */
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: inline-block !important;
+  /* 用户要求：去掉中间数字输入框的边框高亮（不要蓝focus环） */
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* 用户明确要求：中间数字框 hover / focus / active 所有状态下，
+   背景颜色都必须和外层输入框（surfaceSecondary）保持一致，
+   绝对不能出现蓝高亮环、加深灰底或其他突兀变色 → 所有交互态全锁死 */
+.vue-number-input > input:hover,
+.vue-number-input > input:focus,
+.vue-number-input > input:focus-visible,
+.vue-number-input > input:active {
+  border-color: transparent !important;
+  background: var(--surfaceSecondary) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* @chenfengyuan/vue-number-input 的控件按钮（用 ::before/::after 画 +/- 横条）：
+   尺寸固定、图标大小合理，不再变成超大 */
+.vue-number-input__button {
+  border-radius: 8px !important;
+  background: var(--surfaceSecondary) !important;
+  border-color: transparent !important;
+  transition: 0.15s ease all !important;
+  width: 32px !important;
+  min-width: 32px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  position: relative;
+  flex: 0 0 32px;
+  padding: 0 !important;
+  margin: 0 2px !important;
+  /* 基础字号 + 禁用 material-icons 继承的 24px 默认放大 */
+  font-size: 16px !important;
+  line-height: 36px !important;
+}
+.vue-number-input__button--minus,
+.vue-number-input__button--plus {
+  cursor: pointer;
+}
+/* +/- 两条线（base.css 用 background 画）：固定尺寸、居中对齐，不会超大 */
+.vue-number-input__button::before,
+.vue-number-input__button::after {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--textSecondary) !important;
+  /* 关键：原来尺寸太大了 → 改成 12px × 2px 的 iOS 加减号大小 */
+  width: 12px !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+  box-shadow: none !important;
+}
+.vue-number-input__button--plus::after {
+  /* 加号的竖线：2px × 12px */
+  width: 2px !important;
+  height: 12px !important;
+}
+
+/* 用户要求：- / + 按钮在 hover / active / focus 时背景必须和外层输入框完全一致
+   → 锁死 background 为 surfaceSecondary，边框透明，禁止任何蓝环/深灰反色反馈 */
+.vue-number-input__button:hover,
+.vue-number-input__button:active,
+.vue-number-input__button:focus,
+.vue-number-input__button:focus-visible {
+  background: var(--surfaceSecondary) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--textPrimary) !important;
+  -webkit-tap-highlight-color: transparent !important;
+  /* 轻微的按压视觉反馈用 transform 做，不改变背景色 */
+}
+.vue-number-input__button:active {
+  transform: scale(0.94);
+}
+
+/* ---------- 分享弹窗 .input-group（vue-number-input + 单位 select）iOS 布局 ---------- */
+.card#share .input-group {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  /* 关键：高度固定与密码框完全一致 = 36px，并且 margin-bottom 一致 = 4px
+     原 0.75em(≈12px) + 未限高 导致第一行视觉上比密码框高一大截 */
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  margin: 0 0 4px !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  /* 关键：原 dashboard 用了 font-size:0 清除 inline-block 间距
+     会把内部所有子元素字号继承为 0！直接重置。 */
+  font-size: 16px !important;
+  line-height: 36px !important;
+  width: 100% !important;
+}
+.card#share .input-group * {
+  font-size: inherit !important;
+}
+/* 单位 select（hours/days） 右对齐 iOS 圆角灰底 */
+.card#share .input-group select.right {
+  flex: 0 0 auto;
+  height: 36px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  background: var(--surfaceSecondary) !important;
+  color: var(--textPrimary) !important;
+  border: 1px solid transparent !important;
+  font-size: 15px !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+/* 用户要求：小时下拉框 hover / active / focus / open 所有状态，
+   背景色和外层输入框（surfaceSecondary）完全一致，不能有蓝高亮/深灰反色 */
+.card#share .input-group select.right:hover,
+.card#share .input-group select.right:active,
+.card#share .input-group select.right:focus,
+.card#share .input-group select.right:focus-visible {
+  background: var(--surfaceSecondary) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--textPrimary) !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* ============================================================
+   分享弹窗 Share.vue - 完整 iOS 风格排版
+   - 标签（分享期限 / 密码）使用 iOS 字号和次灰
+   - 密码输入框 .input.input--block：和数字框统一 36px 高度、灰底、圆角
+   - 整体间距按照 iOS 表单分组风格调整
+   ============================================================ */
+
+/* card-content 整体：使用 iOS 表单式紧凑布局 */
+.card#share .card-content {
+  padding: 20px 20px 8px !important;
+}
+
+/* 标签 p（例如 "分享期限"、"密码（选填，不填即无密码）"） */
+.card#share .card-content > p {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--textSecondary) !important;
+  margin: 0 0 8px 2px !important;
+  line-height: 1.4 !important;
+  letter-spacing: 0.01em !important;
+}
+/* 第二个标签（密码）和第一个输入组之间增加分组间距 */
+.card#share .card-content > p:nth-of-type(2) {
+  margin-top: 18px !important;
+}
+
+/* ---------- 密码输入框：和数字框保持同一视觉规范 ---------- */
+.card#share input.input.input--block,
+.card#share input[type="password"].input,
+.card#share input[type="text"].input {
+  /* 视觉统一：高度/背景/圆角/字号与时间数字框保持一致 */
+  height: 36px !important;
+  min-height: 36px !important;
+  line-height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  background: var(--surfaceSecondary) !important;
+  color: var(--textPrimary) !important;
+  border: 1px solid transparent !important;
+  font-size: 15px !important;
+  margin: 0 0 4px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition:
+    0.18s cubic-bezier(0.22, 1, 0.36, 1) background-color,
+    0.18s cubic-bezier(0.22, 1, 0.36, 1) border-color,
+    0.18s cubic-bezier(0.22, 1, 0.36, 1) box-shadow !important;
+}
+.card#share input.input.input--block:hover,
+.card#share input[type="password"].input:hover {
+  border-color: rgba(0, 122, 255, 0.35) !important;
+}
+.card#share input.input.input--block:focus,
+.card#share input[type="password"].input:focus,
+.card#share input[type="text"].input:focus {
+  border-color: var(--blue) !important;
+  background: var(--surfacePrimary) !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15) !important;
+}
+/* 深色模式下确保 surfaceSecondary 足够亮，密码框不会和背景融成一片 */
+html.dark .card#share input.input.input--block,
+html.dark .card#share input[type="password"].input {
+  background: rgba(118, 118, 128, 0.24) !important;
+  color: #FFFFFF !important;
+}
+html.dark .card#share input.input.input--block:focus,
+html.dark .card#share input[type="password"].input:focus {
+  background: rgba(118, 118, 128, 0.32) !important;
+}
+
+/* placeholder 文字：iOS 次级灰，确保提示可见 */
+.card#share input.input::placeholder,
+.card#share input[type="password"]::placeholder {
+  color: var(--textTertiary, #8E8E93) !important;
+  font-weight: 400 !important;
+}
+
+/* ============================================================
+   macOS Finder 风格搜索 UI（基于 Search.vue 新组件结构）
+   ============================================================ */
+
+/* ---------- 搜索框本体：iOS pill 圆角 + 毛玻璃底 + 聚焦发光 ---------- */
+#search #input {
+  border-radius: 18px !important;
+  height: 34px !important;
+  padding: 0 10px 0 10px !important;
+  gap: 6px !important;
+  background: rgba(118, 118, 128, 0.12) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid transparent !important;
+  transition:
+    0.18s cubic-bezier(0.22, 1, 0.36, 1) all,
+    box-shadow 0.25s ease,
+    outline 0.2s ease;
+  outline: 0 solid transparent;
+  box-shadow: 0 0 0 0 rgba(0, 122, 255, 0);
+  /* 显式防止 ring 被父容器裁切：overflow visible + display: flex 正常 */
+  overflow: visible;
+}
+
+/* 放大镜图标 */
+#search #input .material-icons.search-icon {
+  color: rgba(60, 60, 67, 0.6) !important;
+  font-size: 17px !important;
+  margin: 0 2px 0 2px !important;
+  flex-shrink: 0;
+}
+html.dark #search #input .material-icons.search-icon {
+  color: rgba(235, 235, 245, 0.6) !important;
+}
+
+/*
+  聚焦时蓝色发光 ring —— 修正：使用 outline 做主环，box-shadow 只保留外阴影
+  避免 box-shadow 被布局内的 overflow:hidden 或邻近元素裁成半圈（用户看到的
+  "左边只有弧光" 的 bug）
+*/
+#search #input.focused {
+  background: var(--surfacePrimary) !important;
+  outline: 2px solid rgba(0, 122, 255, 0.78) !important;
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 4px rgba(0, 122, 255, 0.18),
+    0 6px 18px rgba(0, 122, 255, 0.12) !important;
+}
+
+/* 全屏 active 态（不再使用，但保留以防旧代码误用）与非内联都保留 pill 圆角，
+   不再强制 border-radius: 0 / 强制不同高度导致 UI 变形 */
+#search.active #input,
+#search.open #input {
+  height: 34px !important;
+  border-radius: 18px !important;
+  border-bottom: 0 !important;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.03) !important;
+}
+/* 如果父级上还带 focused（#search.focused）再补上 focused 的 ring */
+#search.focused #input:not(.focused) {
+  outline: 2px solid rgba(0, 122, 255, 0.78) !important;
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 4px rgba(0, 122, 255, 0.18),
+    0 6px 18px rgba(0, 122, 255, 0.12) !important;
+  background: var(--surfacePrimary) !important;
+}
+
+/* ---------- 清除 × 按钮（macOS 搜索框内的灰色取消圈） ---------- */
+#search #input .clear-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(60, 60, 67, 0.3) !important;
+  transition: 0.12s ease all;
+  line-height: 0;
+}
+#search #input .clear-btn:hover {
+  color: rgba(60, 60, 67, 0.55) !important;
+}
+html.dark #search #input .clear-btn {
+  color: rgba(235, 235, 245, 0.3) !important;
+}
+html.dark #search #input .clear-btn:hover {
+  color: rgba(235, 235, 245, 0.6) !important;
+}
+#search #input .clear-btn i.material-icons {
+  font-size: 18px !important;
+  margin: 0 !important;
+}
+
+/* ---------- 结果计数徽章（搜索框右端 pill） ---------- */
+#search #input .count-badge {
+  margin-top: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  font-size: 12px !important;
+  font-weight: 600;
+  background: rgba(60, 60, 67, 0.18);
+  color: var(--textSecondary);
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+html.dark #search #input .count-badge {
+  background: rgba(84, 84, 88, 0.38);
+  color: rgba(235, 235, 245, 0.85);
+}
+
+/* ---------- Finder 工具条（范围分段控件 + 结果计数） ---------- */
+#search .finder-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 8px 14px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
+  flex-wrap: wrap;
+}
+
+#search .finder-segmented {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surfaceSecondary);
+  border-radius: 9px;
+  padding: 2px;
+  -webkit-user-select: none;
+  user-select: none;
+  flex: 0 0 auto;
+}
+
+#search .finder-segmented button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--textPrimary);
+  border-radius: 7px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.88em;
+  font-weight: 500;
+  transition: 0.18s ease all;
+  line-height: 1.35;
+}
+
+#search .finder-segmented button:hover {
+  color: var(--textSecondary);
+}
+
+#search .finder-segmented button.active {
+  background: var(--surfacePrimary);
+  color: var(--blue);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.09);
+}
+
+html.dark #search .finder-segmented button.active {
+  background: #2c2c2e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+#search .finder-count {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--textSecondary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  flex: 0 0 auto;
+}
+#search .finder-count.searching::after {
+  content: "…";
+}
+
+/* ---------- 深色模式下搜索框底色适配 ---------- */
+html.dark #search #input {
+  background: rgba(118, 118, 128, 0.24) !important;
+}
+html.dark #search #input.focused {
+  background: #1c1c1e !important;
+}
+
+/* ---------- Search overlay iOS 毛玻璃 ---------- */
+#search.active {
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(242, 242, 247, 0.78);
+}
+html.dark #search.active {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* 结果列表行 iOS 风格圆角 hover */
+#search.active #result ul li {
+  margin-bottom: 2px;
+}
+#search.active #result ul li a {
+  padding: 9px 12px !important;
+  border-radius: 10px;
+  transition: 0.12s ease background;
+}
+#search.active #result ul li a:hover {
+  background: var(--hover);
+}
+
+.vue-number-input__button:hover {
+  background: var(--hover) !important;
+}
+
+/* ============================================================
+   预览视图：拖拽分隔条 + PDF/MD/Word/TXT 样式
+   ============================================================ */
+
+/* ---------- 预览面板拖拽分隔条 ---------- */
+.preview-resizer {
+  position: relative;
+  flex: 0 0 6px;
+  width: 6px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background-color 0.15s ease;
+  z-index: 5;
+}
+.preview-resizer:hover,
+.preview-resizer.dragging {
+  background: rgba(0, 122, 255, 0.18);
+}
+.preview-resizer__handle {
+  width: 3px;
+  height: 40px;
+  border-radius: 3px;
+  background: var(--iconTertiary);
+  opacity: 0.5;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.preview-resizer:hover .preview-resizer__handle,
+.preview-resizer.dragging .preview-resizer__handle {
+  opacity: 1;
+  background: var(--blue);
+}
+
+/* ---------- 预览面板：iOS 8 段 spinner 加载 ---------- */
+.preview-spinner {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surfaceSecondary);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+.preview-spinner::before,
+.preview-spinner::after,
+.preview-spinner > i, /* unused placeholder */
+.preview-spinner {
+  /* iOS 8 段 bars 通过伪元素+循环难实现，此处退化为旋转双环 */
+}
+.preview-spinner::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border: 2.5px solid rgba(0, 122, 255, 0.18);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: preview-spin 0.9s linear infinite;
+  -webkit-animation: preview-spin 0.9s linear infinite;
+}
+@-webkit-keyframes preview-spin {
+  to { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+}
+@keyframes preview-spin {
+  to { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+}
+
+/* 预览错误态图标 */
+.preview-pane__big-icon.error {
+  color: #FF3B30 !important;
+}
+.preview-pane__hint.error {
+  color: #FF3B30 !important;
+}
+.preview-pane__download-btn {
+  margin-top: 10px !important;
+  border-radius: 10px !important;
+  background: var(--blue) !important;
+  color: #fff !important;
+  padding: 8px 16px !important;
+  font-weight: 500 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: transform 0.1s ease, opacity 0.15s ease !important;
+}
+.preview-pane__download-btn:hover {
+  opacity: 0.92;
+}
+.preview-pane__download-btn:active {
+  transform: scale(0.97);
+}
+
+/* ---------- PDF 预览容器 & 工具栏（对齐 Example macOS 风格） ----------
+   主题跟随应用本身：<html> 上加的 .light / .dark class（utils/theme.ts）。
+   ❌ 不再使用 @media (prefers-color-scheme: dark)，否则 Windows 系统设为深色、
+      但 App 内手动选浅色时，会错误命中深色规则（黑条工具栏 / 纯黑滚动槽，跟整体浅色 UI 冲突）。 */
+.preview-pdf-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(240, 240, 242, 0.9);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+html.dark .preview-pdf-container {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(28, 28, 30, 0.9);
+}
+.preview-pdf-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(180deg, #f6f6f7 0%, #ebebed 100%);
+  box-sizing: border-box;
+}
+html.dark .preview-pdf-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%);
+}
+.preview-pdf-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+html.dark .preview-pdf-group { background: rgba(255, 255, 255, 0.05); }
+.preview-pdf-btn {
+  min-width: 0 !important;
+  padding: 0 !important;
+  width: 28px;
+  height: 28px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--textPrimary) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  transition: background 0.15s, transform 0.12s;
+}
+.preview-pdf-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+html.dark .preview-pdf-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.preview-pdf-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.preview-pdf-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.preview-pdf-btn .material-icons {
+  font-size: 16px !important;
+}
+.preview-pdf-btn--text {
+  width: auto !important;
+  padding: 0 8px !important;
+  font-size: 12px !important;
+  font-weight: 500;
+  gap: 2px !important;
+}
+.preview-pdf-page {
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #1d1d1f;
+  font-weight: 500;
+  white-space: nowrap;
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+}
+html.dark .preview-pdf-page {
+  background: #3a3a3c;
+  color: #ffffff;
+  outline-color: rgba(255,255,255,0.1);
+}
+.preview-pdf-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 0 6px;
+}
+html.dark .preview-pdf-divider { background: rgba(255, 255, 255, 0.1); }
+.preview-pdf-spacer {
+  flex: 1 1 auto;
+}
+.preview-pdf-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 16px;
+  box-sizing: border-box;
+  background-color: #d1d1d6;
+  background-image: radial-gradient(circle at center, #b8b8be 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+html.dark .preview-pdf-scroll {
+  background-color: #000000;
+  background-image: radial-gradient(circle at center, #3a3a3c 1px, transparent 1px);
+}
+.preview-pdf-canvas {
+  background: #fff;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0,0,0,0.1);
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  max-width: 100%;
+  height: auto;
+  margin: auto 0;
+}
+
+/* ---------- Markdown 预览 (GitHub-like + iOS 风格) ---------- */
+.preview-markdown.markdown-body {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 18px 20px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--textPrimary);
+  background: transparent;
+  word-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+}
+.preview-markdown.markdown-body h1,
+.preview-markdown.markdown-body h2,
+.preview-markdown.markdown-body h3,
+.preview-markdown.markdown-body h4,
+.preview-markdown.markdown-body h5,
+.preview-markdown.markdown-body h6 {
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--textPrimary);
+}
+.preview-markdown.markdown-body h1 { font-size: 1.6em; border-bottom: 1px solid var(--divider); padding-bottom: 0.3em; }
+.preview-markdown.markdown-body h2 { font-size: 1.35em; border-bottom: 1px solid var(--divider); padding-bottom: 0.25em; }
+.preview-markdown.markdown-body h3 { font-size: 1.18em; }
+.preview-markdown.markdown-body h4 { font-size: 1.04em; }
+.preview-markdown.markdown-body p { margin: 0 0 0.9em; }
+.preview-markdown.markdown-body a {
+  color: var(--blue);
+  text-decoration: none;
+}
+.preview-markdown.markdown-body a:hover {
+  text-decoration: underline;
+}
+.preview-markdown.markdown-body ul,
+.preview-markdown.markdown-body ol {
+  padding-left: 1.6em;
+  margin: 0 0 0.9em;
+}
+.preview-markdown.markdown-body li { margin: 0.2em 0; }
+.preview-markdown.markdown-body blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.4em 1em;
+  border-left: 4px solid var(--blue);
+  color: var(--textSecondary);
+  background: var(--surfaceSecondary);
+  border-radius: 0 8px 8px 0;
+}
+.preview-markdown.markdown-body code {
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  background: var(--surfaceSecondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  color: var(--textPrimary);
+}
+.preview-markdown.markdown-body pre {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--surfaceSecondary);
+  overflow: auto;
+  margin: 0 0 0.9em;
+}
+.preview-markdown.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.86em;
+  line-height: 1.55;
+}
+.preview-markdown.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.9em;
+  font-size: 0.92em;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.preview-markdown.markdown-body th,
+.preview-markdown.markdown-body td {
+  padding: 8px 12px;
+  border: 1px solid var(--divider);
+}
+.preview-markdown.markdown-body th {
+  background: var(--surfaceSecondary);
+  font-weight: 600;
+}
+.preview-markdown.markdown-body img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.preview-markdown.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--divider);
+  margin: 1.4em 0;
+}
+
+/* ---------- Word 文档预览（docx-preview 保真渲染，对齐 Example wordPview） ---------- */
+/* 容器：工具栏 + 滚动区（与 preview-pdf-container 同风格） */
+.preview-word-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(240, 240, 242, 0.9);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+html.dark .preview-word-container {
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(28, 28, 30, 0.9);
+}
+/* docx-preview 样式注入容器（隐藏） */
+.preview-word-style {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+/* 工具栏 */
+.preview-word-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(180deg, #f6f6f7 0%, #ebebed 100%);
+  box-sizing: border-box;
+}
+html.dark .preview-word-toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%);
+}
+.preview-word-pages {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--textSecondary, #86868b);
+  white-space: nowrap;
+}
+html.dark .preview-word-pages { background: rgba(255, 255, 255, 0.08); }
+/* 滚动渲染区（圆点网格背景） */
+.preview-word-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  box-sizing: border-box;
+  background-color: var(--surfaceSecondary, #e5e5ea);
+}
+html.dark .preview-word-scroll {
+  background-color: var(--surfaceSecondary, #1c1c1e);
+}
+/* Word 渲染加载指示（居中 spinner） */
+.preview-word-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  width: 100%;
+}
+/* 缩放包装：正常等比缩放居中；fitWidth 撑满 */
+.preview-word-scalewrap {
+  transform-origin: top center;
+  transition: transform 0.15s ease-out;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  min-width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+.preview-word-scalewrap.is-fitwidth {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  transform: none;
+}
+/* docx 渲染宿主：白纸卡片 */
+.preview-word-host {
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+.preview-word-scalewrap.is-fitwidth .preview-word-host {
+  width: 100%;
+}
+.preview-word-host .docx-wrapper,
+.preview-word-host .docx-side-preview-wrapper {
+  background: transparent;
+  padding: 0;
+}
+.preview-word-host section.docx {
+  box-shadow: none;
+  margin: 0;
+  background: #ffffff;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* fitWidth 模式下，Word 页面左右页边距自适应容器，避免左侧大片空白 */
+.preview-word-scalewrap.is-fitwidth .preview-word-host section.docx {
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+  min-width: 0 !important;
+}
+/* docx-preview 渲染的 Word 页眉若带 position:fixed，会浮到预览面板 header 上；
+   强制恢复文档流（选择器放宽到 preview-word-host 内所有 header） */
+.preview-word-host,
+.preview-word-host .docx-side-preview-wrapper,
+.preview-word-host .docx-wrapper {
+  position: relative;
+}
+.preview-word-host header,
+.preview-word-host .docx-header,
+.preview-word-host [class*="header"] {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  z-index: auto !important;
+  transform: none !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+.preview-word-host table {
+  border-collapse: collapse;
+}
+html.dark .preview-word-host { outline-color: rgba(255, 255, 255, 0.1); }
+
+/* ---------- 文本/代码预览 ---------- */
+.preview-text-code {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--surfaceSecondary);
+  color: var(--textPrimary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+.preview-text-code > code {
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+.preview-text-code.is-csv {
+  font-size: 12px;
+  white-space: pre;
+}
+
+/* ---------- 预览面板宽度动态适配：让 Vue :style 的 width 优先于 CSS 默认 ---------- */
+.files-layout.with-preview > .preview-pane {
+  width: auto !important;
+  max-width: none !important;
+}
+.files-layout.with-preview > .listing-area {
+  max-width: none !important;
+}
+
+.vue-number-input__button::before,
+.vue-number-input__button::after {
+  background: var(--textSecondary) !important;
+  border-radius: 2px !important;
+}
+
+/* ============================================================
+   上传相关组件（iOS 风格）
+   ============================================================ */
+
+.upload-files .card .card-title {
+  border-radius: 14px 14px 0 0 !important;
+  background: var(--surfaceSecondary) !important;
+  padding: 0.8em 1em !important;
+  font-size: 0.95em !important;
+  font-weight: 600 !important;
+}
+
+/* 按钮内行内列表 */
+.rules > div {
+  border-radius: 10px !important;
+  padding: 0.5em !important;
+  background: var(--surfaceSecondary) !important;
+  margin-bottom: 0.5em !important;
+}
+
+.rules input[type="text"] {
+  border-radius: 8px !important;
+  border-color: transparent !important;
+  background: var(--surfacePrimary) !important;
+  padding: 0.4em 0.8em !important;
+}
+
+/* ============================================================
+   帮助卡片 / 通用分组
+   ============================================================ */
+
+.dashboard #nav ul li {
+  border-radius: 8px !important;
+  padding: 1em 1.5em !important;
+  transition: 0.15s ease all !important;
+}
+
+.dashboard #nav ul li.active {
+  background: rgba(0, 122, 255, 0.1) !important;
+  border-color: transparent !important;
+}
+
+
+/* ============================================================
+   桌面端 #dropdown 横排（容纳 FileListing 各种操作按钮）
+   ============================================================ */
+header > #dropdown {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  flex: 0 0 auto;
+  padding: 0;
+  background: transparent;
+  position: static;
+  transform: none;
+}
+
+/* ============================================================
+   【本次新增】iOS 简洁风格补丁
+   1) 去掉右上角操作栏 / 下拉菜单突兀 box-shadow
+   2) Empty 空状态 iOS 风格化（Files.app 空文件夹）
+   ============================================================ */
+
+/* ---------- 1. #dropdown / .context-menu：移除突兀 box-shadow（简洁 iOS 风） ---------- */
+.context-menu,
+#dropdown {
+  box-shadow: none !important;
+}
+/* 移动端下拉菜单也同步去掉阴影 */
+@media (max-width: 736px) {
+  #dropdown {
+    box-shadow: none !important;
+  }
+}
+
+/* ---------- 2. Empty 空状态 iOS 化（Files.app 空文件夹视觉） ---------- */
+
+/* 2.1 隐藏原 Material Design 表情脸图标，替换为 iOS 中性文件夹 SVG */
+h2.message i.material-icons {
+  display: none !important;
+}
+
+h2.message {
+  /* iOS 空状态整体更轻：次灰、细体、稍小字号、更大留白居中偏上 */
+  color: #8E8E93 !important;
+  font-weight: 400 !important;
+  font-size: 1.35em !important;
+  letter-spacing: 0.01em;
+  margin: 0 auto !important;
+  padding: 64px 16px 48px !important;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 95% !important;
+  text-align: center;
+}
+
+/* 2.2 用 SVG DataURI 伪元素绘制 iOS 风格"空文件夹"线性描边图标（72×72） */
+h2.message::before {
+  content: "";
+  display: block;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  /* 亮色：iOS 浅灰 #C7C7CC 描边 */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72' width='72' height='72' fill='none'><path d='M10 22a3 3 0 013-3h15.3c.9 0 1.76-.39 2.36-1.06L33.1 14.8A3 3 0 0135.4 14H59a3 3 0 013 3v4.5M10 22v31a4 4 0 004 4h44a4 4 0 004-4V21.5M10 22h56' stroke='%23C7C7CC' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' opacity='0.95'/></svg>");
+}
+
+/* 2.3 暗色模式：空文件夹描边换成 iOS 暗次灰 #636366，文字保持 8E8E93 */
+:root.dark h2.message {
+  color: #8E8E93 !important;
+}
+:root.dark h2.message::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72' width='72' height='72' fill='none'><path d='M10 22a3 3 0 013-3h15.3c.9 0 1.76-.39 2.36-1.06L33.1 14.8A3 3 0 0135.4 14H59a3 3 0 013 3v4.5M10 22v31a4 4 0 004 4h44a4 4 0 004-4V21.5M10 22h56' stroke='%23636366' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' opacity='0.95'/></svg>");
+}
+
+/* ============================================================
+   搜索关键词高亮（macOS Finder 风格：圆角黄色 pill）
+   ============================================================ */
+
+/* 通用 .search-match 高亮段：
+   - 亮色模式：#FFE58F 半透明黄（Finder 标准高亮色）+ 深色文字 + 2px 圆角 pill
+   - 暗色模式：#FFD60A 低饱和黄（苹果暗色调系统黄）+ 更柔和背景，保持可读
+*/
+.search-match {
+  color: #1D1D1F !important;
+  background-color: #FFE58F !important;
+  border-radius: 3px !important;
+  padding: 0 2px !important;
+  margin: 0 -1px !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  font-weight: 500 !important;
+  text-shadow: 0 0 0 transparent;
+}
+
+/* html.light / html.dark 两套选择器（index.html 预置类名） */
+html.light .search-match {
+  color: #1D1D1F !important;
+  background-color: #FFE58F !important;
+}
+html.dark .search-match {
+  color: #1D1D1F !important;
+  background-color: #FFD60A !important;
+  /* 暗色下稍降亮度让高亮不刺眼，同时保留对比度 */
+  filter: saturate(1.05) brightness(0.96);
+}
+
+/* :root.dark 兜底（某些地方用的是 :root.dark 类名，保持一致） */
+:root.dark .search-match {
+  color: #1D1D1F !important;
+  background-color: #FFD60A !important;
+  filter: saturate(1.05) brightness(0.96);
+}
+
+/* 选中态（item 被选中时高亮仍然清晰可辨） */
+#listing .item.selected .search-match,
+#listing .item.aria-selected .search-match,
+.search-dropdown .item.selected .search-match {
+  background-color: #F9D54A !important;
+  color: #000 !important;
+}
+

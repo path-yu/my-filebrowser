@@ -1,0 +1,379 @@
+html[dir="rtl"] #listing {
+  margin-right: 16em;
+}
+
+#listing h2 {
+  margin: 0 0 0 0.5em;
+  font-size: 0.9em;
+  color: var(--textPrimary);
+  font-weight: 500;
+}
+
+#listing .item div:last-of-type * {
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+#listing > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+#listing .item {
+  background: var(--surfacePrimary);
+  border-color: var(--divider);
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  color: var(--textPrimary);
+  transition:
+    0.1s ease background,
+    0.1s ease opacity;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 主信息列（图标列右侧）：占满剩余空间 */
+#listing .item > div:first-child + div {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 0.5em;
+}
+
+#listing .item div:last-of-type * {
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+#listing .item p {
+  margin: 0;
+}
+
+#listing .item .size,
+#listing .item .modified {
+  font-size: 0.9em;
+}
+
+/* 名称列：占据主信息区大部分空间 */
+#listing .item .name {
+  font-weight: bold;
+  flex: 1 1 50%;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#listing .item .size {
+  flex: 0 0 14%;
+  min-width: 0;
+  text-align: right;
+  padding-right: 0.4em;
+}
+
+#listing .item .modified {
+  flex: 0 0 24%;
+  min-width: 0;
+  text-align: right;
+  padding-right: 0.4em;
+}
+
+/* subtitle：单独一行（flex-wrap + flex-basis 100% 触发换行），
+ * 左边留 5em 避让图标列，与文件标题左对齐，显示在标题正下方 */
+#listing .item .product-code {
+  flex: 1 1 calc(100% - 5em);
+  order: 99; /* 始终排列在最后一行 */
+  margin: -2px 0 6px 5em;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.78em;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--textSecondary, #8e8e93);
+  cursor: copy;
+  max-width: calc(100% - 5em);
+  width: fit-content;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+#listing .item .product-code:hover,
+#listing .item .product-code:focus-visible {
+  color: var(--blue, #007aff);
+  outline: none;
+}
+
+#listing .item[aria-selected="true"] .product-code {
+  color: inherit;
+  opacity: 0.85;
+}
+
+#listing .item .product-code:empty {
+  display: none;
+}
+
+#listing .item i {
+  font-size: 4em;
+  margin-right: 0.1em;
+  vertical-align: bottom;
+}
+
+#listing .item img {
+  width: 4em;
+  height: 4em;
+  object-fit: cover;
+  margin-right: 0.1em;
+  vertical-align: bottom;
+}
+
+.message {
+  text-align: center;
+  font-size: 2em;
+  margin: 1em auto;
+  display: block !important;
+  width: 95%;
+  color: var(--textPrimary);
+  font-weight: 500;
+}
+
+.message i {
+  font-size: 2.5em;
+  margin-bottom: 0.2em;
+  display: block;
+}
+
+#listing.mosaic {
+  padding-top: 1em;
+  margin: 0 -0.5em;
+}
+
+#listing.mosaic .item {
+  width: calc(33% - 1em);
+  margin: 0.5em;
+  padding: 0.5em;
+  border-radius: 0.2em;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+#listing.mosaic .item:hover {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.24) !important;
+}
+
+#listing.mosaic .header {
+  display: none;
+}
+
+#listing.mosaic .item div:first-of-type {
+  width: 5em;
+}
+
+#listing.mosaic .item div:last-of-type {
+  width: calc(100% - 5vw);
+}
+
+#listing.mosaic.gallery .item div:first-of-type {
+  width: 100%;
+  height: 12em;
+}
+
+#listing.mosaic.gallery .item div:last-of-type {
+  position: absolute;
+  bottom: 0.5em;
+  padding: 1em;
+  width: calc(100% - 1em);
+  text-align: center;
+}
+
+#listing.mosaic.gallery .item[data-type="image"] div:last-of-type {
+  color: white;
+  background: linear-gradient(#0000, #0009);
+}
+
+#listing.mosaic.gallery .item i {
+  width: 100%;
+  margin-right: 0;
+  font-size: 8em;
+  text-align: center;
+}
+
+#listing.mosaic.gallery .item img {
+  width: 100%;
+  height: 100%;
+}
+
+#listing.gallery .size,
+#listing.gallery .modified {
+  display: none;
+}
+
+#listing.list {
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
+#listing.list .item {
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--borderPrimary);
+  padding: 1em;
+  border-top: 0;
+}
+
+#listing.list h2 {
+  display: none;
+}
+
+#listing .item[aria-selected="true"] {
+  background: var(--blue) !important;
+  color: var(--iconSecondary) !important;
+}
+
+#listing.list .item div:first-of-type {
+  width: 3em;
+}
+
+#listing.list .item div:first-of-type i {
+  font-size: 2em;
+}
+
+#listing.list .item div:first-of-type img {
+  width: 2em;
+  height: 2em;
+}
+
+#listing.list .item div:last-of-type {
+  width: calc(100% - 3em);
+  display: flex;
+  align-items: center;
+}
+
+#listing.list .item .name {
+  width: 50%;
+}
+
+#listing.list .item .size {
+  width: 25%;
+}
+
+#listing .item.header {
+  display: none !important;
+  background-color: var(--iconTertiary);
+}
+
+#listing.list .header i {
+  /* 原 1.5em → 在父级 p font-size:13px 下放大到 19.5px，
+     与同列 span 文字（13px）视觉尺寸差 50% → 用户感知"图标和文字大小不一致"。
+     改为 1em（13px）与文字同尺寸；line-height:1 + vertical-align:middle 保证基线精确对齐，
+     同时继承父 p 的 color（active 时变蓝）→ 图标颜色也与文字一致。 */
+  font-size: 1em;
+  line-height: 1;
+  vertical-align: middle;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+#listing.list .item.header p.active i {
+  /* active 排序列的箭头图标颜色与文字同步为品牌蓝 */
+  color: inherit;
+}
+#listing.list .item.header {
+  display: flex !important;
+  background: var(--background);
+  z-index: 999;
+  padding: 0.6em;
+  border: 0;
+  border-bottom: 1px solid var(--borderPrimary);
+}
+
+#listing.list .item.header > div {
+  width: 100%;
+}
+
+#listing.list .item.header .name {
+  margin-right: 3em;
+}
+
+#listing.list .header a {
+  color: inherit;
+}
+
+#listing.list .name {
+  font-weight: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+#listing.list .header span {
+  vertical-align: middle;
+}
+
+#listing.list .header i {
+  opacity: 0;
+  transition: 0.1s ease all;
+}
+
+#listing.list .header p:hover i,
+#listing.list .header .active i {
+  opacity: 1;
+}
+
+/* ---------- 列表视图表头字体一致性 ----------
+   原问题：.active 单独 font-weight:bold 导致排序激活列（名称↓）看起来比
+   非排序列（大小 / 最后修改）明显更粗+占位更宽 → 用户感受"文字大小不一致"，
+   并且切换排序时列头会因字体粗细变化产生轻微跳动/抖动。
+   修复：
+   1) 所有表头列（name/size/modified）统一 font-weight:600（semibold）
+      + 统一 font-size，基础占位完全一致，视觉粗细一视同仁；
+   2) 删除 .active 上独加的 font-weight:bold；
+   3) .active 改为颜色高亮（品牌蓝）→ 用户仍能一眼看出当前排序列，
+      但不触发 font-width 变化带来的宽度抖动（遵循经验 421014：
+      active/hover 只改颜色/透明度，不改尺寸/粗细/间距等盒模型属性）。 */
+#listing.list .item.header p {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--textSecondary);
+  margin: 0;
+}
+#listing.list .item.header p.active {
+  color: var(--blue);
+}
+
+#listing #multiple-selection {
+  position: fixed;
+  bottom: -4em;
+  left: 0;
+  z-index: 99999;
+  width: 100%;
+  background-color: var(--blue);
+  height: 4em;
+  padding: 0.5em 0.5em 0.5em 1em;
+  justify-content: space-between;
+  transition: 0.2s ease bottom;
+}
+
+#listing #multiple-selection.active {
+  bottom: 0;
+}
+
+#listing #multiple-selection p,
+#listing #multiple-selection i {
+  color: var(--iconSecondary);
+}

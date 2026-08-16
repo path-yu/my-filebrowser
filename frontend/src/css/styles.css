@@ -1,0 +1,683 @@
+@import "normalize.css/normalize.css";
+@import "vue-toastification/dist/index.css";
+@import "./_variables.css";
+@import "./_buttons.css";
+@import "./_inputs.css";
+@import "./_shell.css";
+@import "./_share.css";
+@import "./fonts.css";
+@import "./base.css";
+@import "./header.css";
+@import "./listing.css";
+@import "./listing-icons.css";
+@import "./upload-files.css";
+@import "./dashboard.css";
+@import "./login.css";
+@import "./mobile.css";
+@import "./epubReader.css";
+@import "./mdPreview.css";
+@import "./context-menu.css";
+@import "./ios.css";
+/* For testing only
+ :focus {
+  outline: 2px solid crimson !important;
+  border-radius: 3px !important;
+} */
+
+.link {
+  color: var(--blue);
+}
+
+#loading {
+  background: var(--background);
+}
+#loading .spinner > div {
+  background: var(--iconPrimary);
+}
+
+main .spinner {
+  display: block;
+  text-align: center;
+  line-height: 0;
+  padding: 1em 0;
+}
+
+main .spinner > div {
+  width: 0.8em;
+  height: 0.8em;
+  margin: 0 0.1em;
+  font-size: 1em;
+  background: var(--iconPrimary);
+  border-radius: 100%;
+  display: inline-block;
+  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+}
+
+main .spinner .bounce1 {
+  animation-delay: -0.32s;
+}
+
+main .spinner .bounce2 {
+  animation-delay: -0.16s;
+}
+
+.delayed {
+  animation: delayed linear 100ms;
+}
+
+@keyframes delayed {
+  0% {
+    opacity: 0;
+  }
+  99% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* * * * * * * * * * * * * * * *
+ *            ACTION           *
+ * * * * * * * * * * * * * * * */
+
+.action {
+  display: inline-block;
+  cursor: pointer;
+  transition: 0.2s ease all;
+  border: 0;
+  margin: 0;
+  color: var(--action);
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  vertical-align: middle;
+  text-align: left;
+  position: relative;
+}
+
+.action.disabled,
+.action[disabled] {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.action i {
+  padding: 0.4em;
+  transition: 0.1s ease-in-out all;
+  border-radius: 50%;
+}
+
+.action:hover {
+  background-color: var(--hover);
+}
+
+.action ul {
+  position: absolute;
+  top: 0;
+  color: #7d7d7d;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  display: flex;
+}
+
+.action ul li {
+  line-height: 1;
+  padding: 0.7em;
+  transition: 0.1s ease background-color;
+}
+
+.action ul li:hover {
+  background-color: var(--divider);
+}
+
+#click-overlay {
+  display: none;
+  position: fixed;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#click-overlay.active {
+  visibility: visible;
+}
+
+.action .counter {
+  display: block;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: var(--blue);
+  color: var(--iconSecondary);
+  border-radius: 50%;
+  font-size: 0.75em;
+  width: 1.8em;
+  height: 1.8em;
+  text-align: center;
+  line-height: 1.55em;
+  font-weight: bold;
+  border: 2px solid var(--borderPrimary);
+}
+
+/* PREVIEWER */
+
+#previewer {
+  background-color: var(--background);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+#previewer header {
+  background-color: var(--header-bg, rgba(255, 255, 255, 0.75));
+  color: var(--header-text, #1d1d1f);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 0.5px 0px var(--divider, rgba(0, 0, 0, 0.1));
+}
+
+#previewer header > .action i {
+  color: #fff;
+  text-shadow: 1px 1px 1px #000000;
+}
+
+#previewer header > title {
+  white-space: nowrap;
+  text-shadow: 1px 1px 1px #000000;
+}
+
+@media (min-width: 738px) {
+  #previewer header #dropdown .action i {
+    /* color: #fff; */
+    /* text-shadow: 1px 1px 1px #000000; */
+  }
+}
+
+#previewer header .action:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+#previewer header .action span {
+  display: none;
+}
+
+#previewer .preview {
+  text-align: center;
+  height: 100%;
+}
+
+#previewer .preview pre {
+  text-align: left;
+  overflow: auto;
+}
+
+#previewer .preview pre,
+#previewer .preview video,
+#previewer .preview img {
+  max-height: 100%;
+  margin: 0;
+}
+
+#previewer .preview audio {
+  width: 95%;
+  height: 88%;
+}
+
+#previewer .preview video {
+  height: 100%;
+}
+
+#previewer .vjs-error-display {
+  margin-top: 40%;
+}
+
+#previewer .preview .info {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5em;
+  color: #fff;
+}
+#previewer .preview .info .title {
+  margin-bottom: 1em;
+}
+#previewer .preview .info .title i {
+  display: block;
+  margin-bottom: 0.1em;
+  font-size: 4em;
+}
+#previewer .preview .info .button {
+  display: inline-block;
+}
+#previewer .preview .info .button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+#previewer .preview .info .button i {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.3em;
+}
+
+#previewer .pdf {
+  width: 100%;
+  height: 100%;
+  padding-top: 4em;
+}
+
+/* Preview.vue: pdf.js canvas 渲染容器 & 工具栏 */
+#previewer .pdf-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0 12px 12px 12px;
+  box-sizing: border-box;
+}
+#previewer .pdf-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--divider, rgba(0, 0, 0, 0.08));
+  border-radius: 10px 10px 0 0;
+  margin-bottom: 12px;
+}
+#previewer .pdf-btn {
+  min-width: 0;
+  padding: 4px 8px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--textPrimary, #000);
+  background: transparent;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+#previewer .pdf-btn:hover:not(:disabled) {
+  background: var(--hover, rgba(0, 0, 0, 0.05));
+}
+#previewer .pdf-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+#previewer .pdf-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+#previewer .pdf-btn .material-icons {
+  font-size: 18px;
+}
+#previewer .pdf-page-label {
+  font-size: 12px;
+  color: var(--textSecondary, #8E8E93);
+  font-weight: 500;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+#previewer .pdf-canvas-holder {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  padding: 16px;
+  background: var(--surfaceSecondary, #F2F2F7);
+  border-radius: 0 0 10px 10px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+#previewer .pdf-canvas {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  max-width: 100%;
+  height: auto;
+}
+
+#previewer h2.message {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+#previewer > button {
+  margin: 0;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(80, 80, 80, 0.5);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  transition: 0.2s ease all;
+}
+
+#previewer > button.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+#previewer > button > i {
+  padding: 0.4em;
+}
+
+#previewer > button:first-of-type {
+  left: 0.5em;
+}
+
+#previewer > button:last-of-type {
+  right: 0.5em;
+}
+
+#previewer .spinner {
+  text-align: center;
+  position: fixed;
+  top: calc(50% + 1.85em);
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#previewer .spinner > div {
+  width: 18px;
+  height: 18px;
+  background: var(--iconPrimary);
+}
+
+/* EDITOR */
+
+#editor-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--background);
+  position: fixed;
+  padding-top: 4em;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 9998;
+  overflow: hidden;
+}
+
+#editor-container .bar {
+  background: var(--surfacePrimary);
+}
+
+#editor-container #editor {
+  flex: 1;
+}
+
+#editor-container .breadcrumbs {
+  height: 2.3em;
+  padding: 0 1em;
+  position: relative;
+  top: 0;
+}
+
+/*** RTL - flip and position arrow of path ***/
+html[dir="rtl"] .breadcrumbs .chevron {
+  transform: scaleX(-1) translateX(16em);
+}
+
+#editor-container .breadcrumbs span {
+  font-size: 0.75rem;
+}
+
+#editor-container .breadcrumbs i {
+  font-size: 1rem;
+}
+
+/* * * * * * * * * * * * * * * *
+ *            FOOTER           *
+ * * * * * * * * * * * * * * * */
+
+.credits {
+  font-size: 0.6em;
+  margin: 3em 1em;
+  padding: 0 1.5em;
+  color: #a5a5a5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+  flex-wrap: nowrap;
+}
+
+.credits > span {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
+}
+
+.credits > span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.credits > span:last-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.credits a,
+.credits a:hover {
+  color: inherit;
+  cursor: pointer;
+}
+
+/* * * * * * * * * * * * * * * *
+ *          ANIMATIONS         *
+ * * * * * * * * * * * * * * * */
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* * * * * * * * * * * * * * * *
+ *         SETTINGS TUS        *
+ * * * * * * * * * * * * * * * */
+
+.tusConditionalSettings input:disabled {
+  background-color: #ddd;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* * * * * * * * * * * * * * * *
+ *         SETTINGS RULES      *
+ * * * * * * * * * * * * * * * */
+
+.rules > div {
+  display: flex;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.rules input[type="checkbox"] {
+  margin-right: 0.2rem;
+}
+
+.rules input[type="text"] {
+  border: 1px solid#ddd;
+  padding: 0.2rem;
+}
+
+.rules label {
+  margin-right: 0.5rem;
+}
+
+.rules button {
+  margin-left: auto;
+}
+
+.rules button.delete {
+  padding: 0.2rem 0.5rem;
+  margin-left: 0.5rem;
+}
+
+/* * * * * * * * * * * * * * * *
+ *         RTL overrides       *
+ * * * * * * * * * * * * * * * */
+
+html[dir="rtl"] .card-content textarea {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir="rtl"] .card-content .small + input {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir="rtl"] .card.floating .card-content .file-list {
+  direction: ltr;
+  text-align: left;
+}
+/* 1. 浅色模式样式定义 */
+html.light {
+  --vjs-bg-color: #f5f5f7;                /* 浅灰背景，消除两侧缝隙 */
+  --vjs-text-color: #1d1d1f;              /* 深色文字与图标 */
+  --vjs-control-bg: linear-gradient(to top, rgba(255, 255, 255, 0.9), transparent);
+  --vjs-header-bg: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), transparent);
+  --vjs-btn-bg: rgba(255, 255, 255, 0.85); /* 播放按钮毛玻璃 */
+  --vjs-btn-border: rgba(0, 0, 0, 0.08);
+  --vjs-btn-hover: #ffffff;
+  --vjs-rail-bg: rgba(0, 0, 0, 0.1);
+  --vjs-primary-color: #0071e3;          /* iOS 经典蓝色 */
+    --vjs-bg-color: #e5e5ea;         /* 明显区别于外层浅色背景 */
+  --vjs-border-color: #d1d1d6;     /* 可选：给播放器加一圈极细边框 */
+  
+}
+
+
+
+/* 2. 深色模式样式定义 */
+html.dark {
+  --vjs-bg-color: #000000;                /* 全黑背景 */
+  --vjs-text-color: #ffffff;              /* 白色文字与图标 */
+  --vjs-control-bg: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+  --vjs-header-bg: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), transparent);
+  --vjs-btn-bg: rgba(255, 255, 255, 0.2);
+  --vjs-btn-border: rgba(255, 255, 255, 0.15);
+  --vjs-btn-hover: rgba(255, 255, 255, 0.35);
+  --vjs-rail-bg: rgba(255, 255, 255, 0.2);
+  --vjs-primary-color: #0a84ff;          /* 深色模式下的亮蓝 */
+    --vjs-bg-color: #121212;         /* 沉浸式暗色 */
+  --vjs-border-color: #2c2c2e;
+}
+
+/* 3. Video.js 样式重置（作用于全局组件） */
+
+/* 主容器背景与字体颜色 */
+.video-js {
+  background-color: var(--vjs-bg-color) !important;
+  color: var(--vjs-text-color) !important;
+  
+}
+.vjs-text-track-display{
+    /* border: 1px solid var(--vjs-border-color); */
+    /* background-color: var(--vjs-bg-color) !important; */
+}
+/* 视频未播放时，隐藏未加载出画面的 `<video>` 标签，露出父容器背景色 */
+.video-js:not(.vjs-has-started) .vjs-tech {
+  opacity: 0;
+}
+
+/* 播放后恢复显示视频画面 */
+.video-js.vjs-has-started .vjs-tech {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+/* 中央播放按钮 */
+.video-js .vjs-big-play-button {
+  background-color: var(--vjs-btn-bg) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--vjs-btn-border) !important;
+  border-radius: 50% !important;
+  width: 64px !important;
+  height: 64px !important;
+  line-height: 62px !important;
+  margin-top: -32px !important;
+  margin-left: -32px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, background-color 0.2s ease !important;
+}
+
+.video-js .vjs-big-play-button .vjs-icon-placeholder:before {
+  color: var(--vjs-text-color) !important;
+}
+
+.video-js:hover .vjs-big-play-button {
+  background-color: var(--vjs-btn-hover) !important;
+  transform: scale(1.06);
+}
+
+/* 底部控制栏与文字/图标颜色 */
+.video-js .vjs-control-bar {
+  background: var(--vjs-control-bg) !important;
+  color: var(--vjs-text-color) !important;
+}
+
+.video-js .vjs-button > .vjs-icon-placeholder:before,
+.video-js .vjs-time-control {
+  color: var(--vjs-text-color) !important;
+}
+
+/* 进度条轨道与播放高亮 */
+.video-js .vjs-progress-holder {
+  background-color: var(--vjs-rail-bg) !important;
+  height: 4px !important;
+  border-radius: 2px;
+}
+
+.video-js .vjs-play-progress {
+  background-color: var(--vjs-primary-color) !important;
+  border-radius: 2px;
+}
+/* 1. 定义 macOS 主题变量 */
+html.light {
+  --header-bg: rgba(255, 255, 255, 0.75);         /* 浅色半透明毛玻璃 */
+  --header-border: rgba(0, 0, 0, 0.1);             /* 极细浅灰下边框 */
+  --header-text: #1d1d1f;                          /* macOS 经典文本黑 */
+  --header-text-secondary: rgba(60, 60, 67, 0.6);   /* 次要文字/图标颜色 */
+  --header-hover-bg: rgba(0, 0, 0, 0.05);          /* 图标 Hover 浅灰色 */
+  --header-active-bg: rgba(0, 0, 0, 0.1);          /* 图标点击态 */
+}
+
+html.dark {
+  --header-bg: rgba(30, 30, 30, 0.75);            /* 深色半透明毛玻璃 */
+  --header-border: rgba(255, 255, 255, 0.12);     /* 极细微白下边框 */
+  --header-text: #f5f5f7;                          /* macOS 经典文本白 */
+  --header-text-secondary: rgba(235, 235, 245, 0.6);
+  --header-hover-bg: rgba(255, 255, 255, 0.1);     /* 图标 Hover 悬浮块 */
+  --header-active-bg: rgba(255, 255, 255, 0.15);
+}
+
+.docx-side-preview header{
+  background-color: white !important;
+  color: black;
+}
