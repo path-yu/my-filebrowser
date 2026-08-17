@@ -31,6 +31,7 @@ import DiscardEditorChanges from "./DiscardEditorChanges.vue";
 import ResolveConflict from "./ResolveConflict.vue";
 import CurrentPassword from "./CurrentPassword.vue";
 import MergePdf from "./MergePdf.vue";
+import SimilarPdf from "./SimilarPdf.vue";
 
 const layoutStore = useLayoutStore();
 
@@ -56,6 +57,7 @@ const components = new Map<string, any>([
   ["resolve-conflict", ResolveConflict],
   ["current-password", CurrentPassword],
   ["mergePdf", MergePdf],
+  ["similarPdf", SimilarPdf],
 ]);
 
 const modal = computed(() => {

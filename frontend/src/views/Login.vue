@@ -2,7 +2,7 @@
   <div id="login" :class="{ recaptcha: recaptcha }">
     <form @submit="submit">
       <LazyImage eager :src="logoURL" alt="文件管理系统" class="login-logo" />
-      <h1>{{ name }}</h1>
+      <h1 class="">{{ name }}</h1>
       <p v-if="reason != null" class="logout-message">
         {{ t(`login.logout_reasons.${reason}`) }}
       </p>
@@ -180,3 +180,9 @@ const autoLoginFromURL = async () => {
   }
 };
 </script>
+<style scoped>
+#login h1{
+ display: inline;
+ padding-left: 20px;
+}
+</style>

@@ -4,13 +4,36 @@ import { baseURL } from "@/utils/constants";
 import { encodePath } from "@/utils/url";
 
 export class StatusError extends Error {
+  public readonly bodyText?: string;
+  public readonly body?: Record<string, any>;
+  public readonly hint?: string;
   constructor(
     message: any,
     public status?: number,
-    public is_canceled?: boolean
+    public is_canceled?: boolean,
+    bodyText?: string
   ) {
     super(message);
     this.name = "StatusError";
+    this.bodyText = bodyText;
+    if (bodyText) {
+      try {
+        const parsed = JSON.parse(bodyText);
+        if (parsed && typeof parsed === "object") {
+          this.body = parsed as Record<string, any>;
+          const errMsg = parsed.error || parsed.message;
+          if (typeof errMsg === "string") {
+            // 替换 message 为后端真正写的中文错误（更清晰）
+            this.message = errMsg;
+          }
+          if (typeof parsed.hint === "string") {
+            this.hint = parsed.hint;
+          }
+        }
+      } catch {
+        /* body 不是 JSON：按原样保留 bodyText 给前端判断 */
+      }
+    }
   }
 }
 
@@ -56,10 +79,10 @@ export async function fetchURL(
 
   if (res.status < 200 || res.status > 299) {
     const body = await res.text();
-    const error = new StatusError(
-      body || `${res.status} ${res.statusText}`,
-      res.status
-    );
+    const httpStatusMsg = body ? `${res.status} ${res.statusText}` : `${res.status} ${res.statusText}`;
+    let msg = body || httpStatusMsg;
+    // 优先用 body 里的后端中文错误文本（由 StatusError 构造函数再做 JSON 解析提取 .error/.hint）
+    const error = new StatusError(msg, res.status, undefined, body);
 
     if (auth && res.status == 401) {
       logout();

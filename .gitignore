@@ -12,6 +12,7 @@ rice-box.go
 # 构建产物与发布包
 *.zip
 release-*/
+output/
 
 # 日志文件
 *.log
@@ -45,3 +46,22 @@ build/
 
 default.nix
 Dockerfile.dev
+
+# ========== 项目本地大文件、二进制工具、运行时产物 ==========
+# MinGW-w64 GCC 编译器（900+MB，纯本地编译环境，不应入库）
+/dev-files/mingw64/
+# Poppler PDF 工具（pdftoppm、pdftotext 等）
+/dev-files/poppler-25.12.0/
+# ONNX Runtime 动态库 + 导出的 ResNet18 模型（大二进制文件，另行分发）
+/dev-files/onnxruntime.dll
+/dev-files/resnet18_features.onnx
+# versioninfo.txt 等 MinGW 自动生成的元数据文件
+/dev-files/versioninfo.txt
+
+# 各 cmd 子命令的编译产物（*.exe 可执行 / *.log 运行日志）
+# main.go 等源码仍保留入库
+/cmd/transform-pdf/transform-pdf.exe
+/cmd/search-similar/search-similar.exe
+/cmd/search-similar/search-similar.log
+# cmd/check-db 为一次性诊断工具目录（源码 + 编译产物均忽略，保留则取消注释源码忽略）
+/cmd/check-db/

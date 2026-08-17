@@ -90,27 +90,46 @@ header .menu-button {
   position: relative;
   height: 100%;
   width: 100%;
-  max-width: 22em;
-  min-width: 6em;
-  flex: 1;
+  /* 用户反馈：搜索框默认宽度太小（22em 约 352px，
+     同一行还要塞「单选/多选」分段控件和多选标签，
+     导致输入框只剩一百多像素宽，输入长关键词时严重憋屈）。
+     放大到 54em（约 864px），同时保留 flex:1，
+     在窄屏 / 左侧空间不多时仍会自动缩小。*/
+  max-width: 54em;
+  min-width: 22em;
+  flex: 1 1 auto;
   /* 浮层 #result 绝对定位的参照容器 */
   z-index: 50;
   /* 预留 5px padding：让聚焦时 3px 的 blue ring 四周空间足够，不会被 nav 邻近元素裁掉 */
   padding: 5px;
   overflow: visible;
+  /* 关键：外层容器在 ongoing/open/focused 之间切换时，
+     必须锁定 min/max-width 和 flex 不改变，
+     否则会触发父级 flex 重新布局，造成 #input 视觉上"突然变窄"。
+     这里先声明默认值，下面用 :is() 把所有状态锁住一致。*/
+  box-sizing: border-box;
 }
 
-/* 旧版 #search.active { position:fixed 全屏 overlay } 已废除 ——
-   现在点击搜索框不再弹出全屏遮罩，结果以内联 dropdown 浮层展示。
-   保留 .active class 定义避免兼容性，但效果等于默认状态。 */
-#search.active {
-  /* 保持 position: relative，不顶到全屏 */
-  position: relative;
-  width: 100%;
-  max-width: 22em;
-  height: 100%;
-  z-index: 50;
+/* 锁定所有"状态类"下的 #search 外层尺寸：
+   focused（输入聚焦）/ open（下拉展开）/ ongoing（搜索中）/ active（旧版全屏）
+   都必须和默认态使用完全相同的 width/flex/min-max，
+   否则用户点击瞬间 class 变化会触发 flex reflow，导致搜索宽度跳变。*/
+#search:is(.focused, .open, .ongoing, .active) {
+  width: 100% !important;
+  max-width: 54em !important;
+  min-width: 22em !important;
+  flex: 1 1 auto !important;
+  height: 100% !important;
+  position: relative !important;
+  padding: 5px !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
 }
+
+/* 旧版 #search.active（全屏 overlay）定义已并入上面的
+   #search:is(.focused,.open,.ongoing,.active) 尺寸锁定规则，
+   这里保留注释避免误删。如果未来有旧代码查询 .active，
+   会通过上面的 :is 锁得到正确尺寸，不再独立写一份防止漂移。*/
 
 #search #input {
   background: var(--surfaceSecondary);
@@ -119,10 +138,25 @@ header .menu-button {
   height: 100%;
   padding: 0em 0.75em;
   border-radius: 0.3em;
-  transition: 0.1s ease all;
+  /* 只过渡颜色/阴影/边框圆角，
+     绝对不要过渡 width/flex/padding 等布局属性，
+     否则用户点击聚焦时，因为 outline/ring/box-shadow 的计算变化，
+     浏览器会对尺寸类属性做 0.1s 的缓动，表现为"搜索框宽度突然变小"。*/
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease,
+    border-color 0.1s ease,
+    box-shadow 0.1s ease,
+    outline-color 0.1s ease,
+    border-radius 0.1s ease;
   align-items: center;
   position: relative;
   z-index: 2;
+  /* 锁定尺寸：不管里面装的是什么（清除按钮、结果徽章），
+     容器不随内容变化而跳动，
+     父级 flex 分配的最终像素永远以这个 box-sizing 为准。*/
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 #search #input input::placeholder {

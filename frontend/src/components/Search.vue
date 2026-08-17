@@ -85,10 +85,9 @@
            放在分段控件右侧（紧挨着），不再占搜索框上面的独立一行。标签过多时横向滚动。
            v-if 条件保留：只有多选模式下且（已有标签 / 聚焦 / 正在输入）才显示空容器占位也可以 -->
       <ul
-        v-if="multiMode"
+        v-if="multiMode && tags.length > 0"
         class="search-tags"
         aria-label="keywords"
-        :class="{ 'is-empty': tags.length === 0 && !inputFocused && prompt.length === 0 }"
       >
         <li
           v-for="(t, i) in tags"
@@ -132,6 +131,17 @@
           </button>
         </li>
       </ul>
+      <!-- 上传 PDF 检索相似图纸：放在搜索框同一行的最右侧，图标按钮 -->
+      <button
+        type="button"
+        class="upload-pdf-btn"
+        :title="'上传 PDF / 图片 搜索相似图纸'"
+        :aria-label="'上传 PDF / 图片 搜索相似图纸'"
+        @mousedown.prevent.stop
+        @click.stop.prevent="openSimilarPdfPrompt"
+      >
+        <i class="material-icons">perm_media</i>
+      </button>
     </div>
 
     <!-- 内联下拉结果浮层（替代旧的全屏 overlay） -->
@@ -232,6 +242,7 @@
 
 <script setup lang="ts">
 import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
 
 import url from "@/utils/url";
 import { search, searchMulti } from "@/api";
@@ -259,6 +270,7 @@ const boxes = {
 type SearchScope = "current" | "all";
 
 const fileStore = useFileStore();
+const layoutStore = useLayoutStore();
 let searchAbortController = new AbortController();
 
 // ------ 单/多选模式 + 标签状态 ------
@@ -1081,26 +1093,41 @@ const goResult = (s: any) => {
   closeDropdown();
   router.push(s.url);
 };
+
+/** 点击右上角"上传 PDF / 图片"图标 → 打开 SimilarPdf.vue 弹窗（共享全局 prompt 系统） */
+const openSimilarPdfPrompt = () => {
+  // 用户要求："点击上传弹窗提示用户上传文件，支持拖拽上传"
+  // 用 layoutStore 弹出 SimilarPdf 组件，组件自己负责拖拽 + 点击选择 + 调用后端接口
+  layoutStore.showHover({
+    prompt: "similarPdf",
+    confirm: null,
+    action: undefined,
+    saveAction: undefined,
+    props: null,
+    close: null,
+  });
+};
 </script>
 
 <style scoped>
 /* ---- 搜索控件 + 模式切换 + 关键词标签：三兄弟同一行横向排列 ----
-   #input (flex:1) | finder-segmented (flex:none 8px gap) | search-tags (flex:0 1 40% 右末) */
+   优先把空间让给输入框：#input (flex 2.5) | finder-segmented (flex:none) | search-tags (flex 1 自动收缩) */
 .search-control-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   flex-wrap: nowrap;
   /* 单行，不换行，标签多时允许横向 scroll，避免把行高撑大 */
   min-height: 32px;
 }
-/* 搜索框本身占主要宽度（自适应缩小放大），模式按钮 / 标签行 flex:none 贴在其右侧 */
+/* 搜索框占大头（自适应缩小放大），输入框最小 320px，保证用户输入时看得清 */
 .search-control-row #input {
-  flex: 1 1 auto;
-  min-width: 180px;
+  flex: 2.5 1 320px;
+  min-width: 320px;
+  max-width: 100%;
 }
 .finder-segmented--mode {
   flex: none;
@@ -1163,9 +1190,10 @@ const goResult = (s: any) => {
   flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  /* 标签占用不超过行宽的 45%，避免挤压搜索框/模式切换 */
-  flex: 0 1 45%;
-  max-width: 45%;
+  /* 标签占用不超过行宽的 30%，优先把空间留给输入框（用户核心诉求）*/
+  flex: 1 1 30%;
+  max-width: 30%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   /* 细滚动条 */
@@ -1279,4 +1307,37 @@ const goResult = (s: any) => {
   align-items: center;
   gap: 10px;
 }
+
+/* ---------- 搜索框最右侧：上传 PDF 图标按钮 ----------
+   位置：关键词标签右侧 → 即搜索框控制行的最末端（用户要求）
+   外观：Finder style 圆形胶囊图标按钮，hover 变蓝色 */
+.upload-pdf-btn {
+  all: unset;
+  flex: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-raised, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  color: #b71c1c;
+  box-sizing: border-box;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
+  align-self: center;
+  margin-left: 4px;
+}
+.upload-pdf-btn .material-icons {
+  font-size: 20px;
+}
+.upload-pdf-btn:hover {
+  background: rgba(183, 28, 28, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+.upload-pdf-btn:active {
+  transform: translateY(1px);
+}
+/* 多选模式下标签多时：上传按钮保持最右端，不参与横向 scroll（在容器外）*/
 </style>

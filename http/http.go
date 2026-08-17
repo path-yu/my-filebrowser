@@ -95,6 +95,14 @@ func NewHandler(
 		Handler(monkey(previewHandler(imgSvc, fileCache, server.EnableThumbnails, server.ResizePreview), "/api/preview")).Methods("GET")
 	api.PathPrefix("/command").Handler(monkey(commandsHandler, "/api/command")).Methods("GET")
 	api.PathPrefix("/search").Handler(monkey(searchHandler, "/api/search")).Methods("GET")
+	// 图纸向量检索：attachDrawingSearchRouter 有两个版本（编译期二选一）
+	//   -tags drawingsearch: 真实实现（drawingsearch.go，需要 CGO+MinGW+onnxruntime）
+	//   默认编译:       stub 实现（drawingsearch_off.go，返回 501 "未启用"+修复指引）
+	// 传入 monkey factory（handleFunc -> Handler 的闭包），避免 stub/实现在外部
+	// 文件里拿不到 http.go New() 局部变量 monkey/store/server。
+	attachDrawingSearchRouter(api, func(fn handleFunc, prefix string) http.Handler {
+		return monkey(fn, prefix)
+	})
 	api.PathPrefix("/subtitle").Handler(monkey(subtitleHandler, "/api/subtitle")).Methods("GET")
 
 	// 产品编号：/batch、/search 为固定路径，用精确路由 + 空前缀注册，

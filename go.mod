@@ -27,6 +27,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
+	github.com/yalue/onnxruntime_go v1.33.0
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/crypto v0.54.0
 	golang.org/x/image v0.44.0
