@@ -192,6 +192,30 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
+/** 把当前搜索词（以及非默认 scope）写入 URL query params，
+ *  刷新后可自动回填。用 replace 避免产生历史记录（后退按钮更顺）。
+ *  q 为空时会把 q / scope 一起从 URL 里去掉。
+ *  捕获并忽略 router.replace 的 NavigationDuplicated 等异常（重复同值替换本身就是 safe 的）。 */
+const persistQueryInUrl = (q: string, s: SearchScope) => {
+  try {
+    const next = { ...route.query } as Record<string, any>;
+    delete next.q;
+    delete next.scope;
+    const trimmed = q.trim();
+    if (trimmed) {
+      next.q = trimmed;
+      if (s !== "current") {
+        next.scope = s;
+      }
+    }
+    router.replace({ path: route.path, query: next }).catch(() => {
+      /* ignore NavigationDuplicated / aborted navigations */
+    });
+  } catch {
+    /* ignore */
+  }
+};
+
 // debounce：macOS Finder 风格，输入停顿 250ms 后自动搜索
 let debounceTimer: number | null = null;
 const DEBOUNCE_MS = 250;
@@ -228,6 +252,60 @@ watch(
   }
 );
 
+/** 监听 URL 中的 q / scope 变化：
+ *   - 浏览器刷新 → onMounted 已经处理
+ *   - 用户分享链接点进来 / 其他组件通过 router.push 带 query 跳过来（SPA 内部跳转，组件不复用挂载）→ 这里补触发
+ *   - 用户手动通过开发者工具 / 地址栏改 URL query 并按回车（不刷新的 hash 路由也能触发）
+ *  关键：如果 URL 里的值和当前 prompt / scope 完全一样，说明是「我自己 persistQueryInUrl 写的」，
+ *       直接跳过，避免死循环（搜索→写URL→watch→再搜索）。*/
+watch(
+  () => [route.query.q, route.query.scope] as const,
+  ([newQ, newScope], [oldQ, oldScope]) => {
+    if (newQ === oldQ && newScope === oldScope) return;
+    const qStr = typeof newQ === "string" ? newQ.trim() : "";
+    const currStr = prompt.value.trim();
+    const sc = typeof newScope === "string" ? newScope : "current";
+    const needChangeScope =
+      (sc === "current" || sc === "all") && sc !== scope.value;
+    const needChangeQ = qStr !== currStr;
+
+    if (!needChangeQ && !needChangeScope) {
+      return; // 与当前一致：是自身刚写入触发的 → 跳过
+    }
+
+    if (needChangeScope) {
+      scope.value = sc as SearchScope;
+    }
+    if (needChangeQ) {
+      prompt.value = qStr;
+    }
+    if (qStr.length > 0) {
+      /** 用户通过 SPA 内部 router.push 带 q 参数跳过来 / 手动改 URL 回车 / 分享链接
+       *  → 关键字已经「稳定」，不是用户在键盘输入，不需要 250ms debounce，
+       *    直接 doSearch() 立即发起请求。
+       *
+       *    ❗ 不要预先把 fileStore.searchMode 设 true 并把 searchResults 清空，
+       *       理由同 onMounted 中的注释：在搜索请求未返回的这段时间，
+       *       visibleItems=[] 会让主列表显示「这里没有任何文件…」，
+       *       给用户造成错误认知。等到 doSearch 收齐结果再一次性切搜索模式。 */
+      nextTick(() => {
+        maybeOpenDropdown();
+        doSearch();
+      });
+    } else if (!needChangeQ) {
+      /* q 没变仅 scope 变的 case：如果本来就在搜索中，watch(scope) 已经会触发重搜 */
+    } else {
+      // q 变成空 → 等价于清除
+      abortLastSearch();
+      ongoing.value = false;
+      results.value = [];
+      resultsCount.value = 50;
+      fileStore.clearSearch();
+    }
+  },
+  { flush: "post" }
+);
+
 // 当关键字/结果变化时，自动展开浮层（便于用户看到搜索结果）
 watch(
   [prompt, results, ongoing],
@@ -259,6 +337,35 @@ onMounted(() => {
   }
   document.addEventListener("click", onDocClick, true);
   document.addEventListener("keydown", onGlobalKeydown, true);
+
+  // 从 URL query params 读取上一次的搜索条件（刷新页面 / 分享链接时自动回填并执行搜索）
+  const savedQ = route.query.q;
+  const savedScope = route.query.scope;
+  if (typeof savedScope === "string" && (savedScope === "current" || savedScope === "all")) {
+    scope.value = savedScope;
+  }
+  if (typeof savedQ === "string" && savedQ.trim().length > 0) {
+      const q = savedQ.trim();
+      prompt.value = q;
+      /** 刷新 / 分享链接打开时：URL 里的关键字不是用户打字，不需要 250ms debounce，
+       *  立即 doSearch() 发请求可以减少 ~250ms 的“空白”等待。
+       *
+       *  ❗ 重要：不要在搜索请求返回前就预先把 fileStore.searchMode 置 true 然后
+       *     searchResults 置空数组。之前这么写的目的是“防止先闪一下全量目录列表”，
+       *     但后果是 onMounted 后 ~250ms(debounce)+流式搜索的等待期内，
+       *     FileListing.visibleItems 会返回 searchResults=[]，主列表整片显示
+       *     「这里没有任何文件…」，严重误导用户以为目录真的空了。
+       *
+       *     现在的策略：搜索请求未回时，fileStore.searchMode 保持 false，
+       *     visibleItems 退回使用 req.items（父目录真实内容），用户会先看到
+       *     当前目录的真实文件——如果目录还没加载完最多显示 loading，而不是
+       *     “空目录”。等 doSearch 流式搜完一次性 fileStore.setSearchResults
+       *     切到搜索模式，searchResults 直接就有完整数据，列表无闪烁原子切换。 */
+      nextTick(() => {
+        maybeOpenDropdown();
+        doSearch();
+      });
+    }
 });
 
 const onDocClick = (event: MouseEvent) => {
@@ -356,6 +463,7 @@ const clearPrompt = () => {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
   }
+  persistQueryInUrl("", scope.value);
   nextTick(() => input.value?.focus());
 };
 
@@ -378,6 +486,7 @@ const debouncedSubmit = () => {
     results.value = [];
     ongoing.value = false;
     fileStore.clearSearch();
+    persistQueryInUrl("", scope.value);
     return;
   }
   debounceTimer = window.setTimeout(() => {
@@ -396,8 +505,11 @@ const doSearch = async () => {
   if (!q) {
     results.value = [];
     fileStore.clearSearch();
+    persistQueryInUrl("", scope.value);
     return;
   }
+  // 写入 URL：刷新 / 分享链接后能自动回填并重新搜索
+  persistQueryInUrl(q, scope.value);
 
   let path: string;
   if (scope.value === "all") {

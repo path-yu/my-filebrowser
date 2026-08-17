@@ -134,6 +134,10 @@ func withUser(fn handleFunc) handleFunc {
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
+		// 挂载点（多根目录）功能：把 user.Fs 包一层 MountOverlayFs，
+		// 这样 /files/<挂载名>/... 会自动路由到各虚拟目录对应的物理路径。
+		// ScopedFs 的安全边界对每个挂载点仍然独立生效，不会穿透。
+		applyUserFsMounts(d)
 		return fn(w, r, d)
 	}
 }

@@ -320,7 +320,7 @@
                   v-bind:type="item.type"
                   v-bind:size="item.size"
                   v-bind:path="item.path"
-                  v-bind:product-code="productCodes[item.path] || ''"
+                  v-bind:product-code="lookupProductCode(item)"
                   v-bind:blur-up="item.blurUp"
                   v-bind:thumbs-eager="true"
                 >
@@ -345,7 +345,7 @@
                 v-bind:type="item.type"
                 v-bind:size="item.size"
                 v-bind:path="item.path"
-                v-bind:product-code="productCodes[item.path] || ''"
+                v-bind:product-code="lookupProductCode(item)"
                 v-bind:blur-up="item.blurUp"
               >
               </item>
@@ -599,7 +599,32 @@
                         <i class="material-icons">zoom_in</i>
                       </button>
                     </div>
+                    <div class="preview-pdf-divider"></div>
+                    <!-- 旋转组（FileListing 内联详情卡片版） -->
+                    <div class="preview-pdf-group">
+                      <button
+                        class="preview-pdf-btn"
+                        @click="pdfRotateLeft"
+                        title="逆时针旋转 90°（快捷键 [）"
+                      >
+                        <i class="material-icons">rotate_left</i>
+                      </button>
+                      <button
+                        class="preview-pdf-btn"
+                        @click="pdfRotateRight"
+                        title="顺时针旋转 90°（快捷键 ]）"
+                      >
+                        <i class="material-icons">rotate_right</i>
+                      </button>
+                    </div>
                     <div class="preview-pdf-spacer"></div>
+                    <button
+                      class="preview-pdf-btn preview-pdf-btn--text"
+                      @click="pdfPrint"
+                      title="打印 PDF（⌘P）"
+                    >
+                      <i class="material-icons">print</i>
+                    </button>
                     <button
                       class="preview-pdf-btn preview-pdf-btn--text"
                       @click="pdfResetScale"
@@ -768,7 +793,7 @@ import css from "@/utils/css";
 import { filesize } from "@/utils";
 import { throttle } from "lodash-es";
 import { Base64 } from "js-base64";
-import dayjs from "dayjs";
+import dayjs = require("dayjs");
 
 // 重型预览库（pdfjs/marked/dompurify/docx-preview）的惰性加载器：
 // 只在首次预览对应类型文件时才加载，避免拖慢首屏渲染。
@@ -893,6 +918,17 @@ const productCodeTarget = computed((): ResourceItem | null => {
 const { productCodes } = storeToRefs(fileStore);
 let productCodeLoadSeq = 0;
 let productCodeLoadTimer: number | null = null;
+
+/** 产品编号双 key 兜底查找：
+ *  先用 item.path 查（后端 FileInfo 直接返回），如果没有命中或 path 为空，
+ *  再用 removePrefix(item.url) 查（前端自己拼的 url 去掉 /files 前缀），
+ *  避免某一侧路径格式不完整导致 subtitle 空白。 */
+const lookupProductCode = (item: ResourceItem): string => {
+  const direct = (item.path && productCodes.value[item.path]) || "";
+  if (direct) return direct;
+  const altKey = removePrefix(item.url);
+  return (altKey && productCodes.value[altKey]) || "";
+};
 
 /** 批量拉取当前列表（含搜索结果）中 PDF 的产品编号 */
 const loadProductCodes = () => {
@@ -1312,6 +1348,7 @@ interface PdfPreviewState {
   currentPage: number;
   scale: number;          // 用户缩放倍率（fitMode=auto时乘在自适应基础上）
   fitMode: PdfFitMode;
+  rotation: 0 | 90 | 180 | 270;
 }
 const previewPdf = shallowReactive<PdfPreviewState>({
   doc: null,
@@ -1319,6 +1356,7 @@ const previewPdf = shallowReactive<PdfPreviewState>({
   currentPage: 1,
   scale: 1.0,
   fitMode: "auto",
+  rotation: 0,
 });
 // 取消正在加载的 PDF fetch / 渲染任务
 let _pdfAbort: AbortController | null = null;
@@ -1549,6 +1587,7 @@ const pdfDestroy = () => {
     previewPdf.currentPage = 1;
     previewPdf.scale = 1.0;
     previewPdf.fitMode = "auto";
+    previewPdf.rotation = 0;
     // 清空 canvas
     if (pdfCanvasRef.value) {
       const ctx = pdfCanvasRef.value.getContext("2d");
@@ -1582,7 +1621,9 @@ const pdfRenderPage = async (pageNum: number) => {
     const page = await previewPdf.doc.getPage(pageNum);
     if (_pdfDestroying || previewPdf.currentPage !== pageNum) return;
 
-    const baseViewport = page.getViewport({ scale: 1 });
+    // 旋转角度要提前带进 baseViewport，否则 90°/270° 下宽高互换后
+    // 「适合页宽 / 适合整页」的 scale 会按错误方向算，导致画面溢出或过小。
+    const baseViewport = page.getViewport({ scale: 1, rotation: previewPdf.rotation });
     const padding = 32;
     const availableW = Math.max(container.clientWidth - padding, 100);
     const availableH = Math.max(container.clientHeight - padding, 100);
@@ -1599,8 +1640,8 @@ const pdfRenderPage = async (pageNum: number) => {
     }
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // DPR 内联进 viewport scale（对应 Example 写法）
-    const viewport = page.getViewport({ scale: effectiveScale * dpr });
+    // DPR 内联进 viewport scale（对应 Example 写法），同时把 rotation 也带进去
+    const viewport = page.getViewport({ scale: effectiveScale * dpr, rotation: previewPdf.rotation });
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -1658,6 +1699,7 @@ const loadPdf = async (it: ResourceItem, seq: number) => {
       previewPdf.currentPage = 1;
       previewPdf.scale = 1.0;
       previewPdf.fitMode = "auto";
+      previewPdf.rotation = 0;
       previewLoading.value = false;
 
       // 让 v-if="previewPdf.totalPages > 0" 里的 pdfScrollRef/pdfCanvasRef 先挂
@@ -1735,6 +1777,131 @@ const pdfSetFit = async (mode: PdfFitMode) => {
   await pdfRenderPage(previewPdf.currentPage);
 };
 
+// 左右旋转：每次 ±90°，循环在 0/90/180/270 之间；一旋转就立刻重绘当前页，
+// 同时手动把 fitMode 切回 auto 避免因宽高互换卡住之前的 width/page 固定缩放比。
+const pdfRotateLeft = async () => {
+  previewPdf.rotation = (((previewPdf.rotation - 90) % 360) + 360) % 360 as 0 | 90 | 180 | 270;
+  previewPdf.scale = 1.0;
+  await pdfRenderPage(previewPdf.currentPage);
+};
+const pdfRotateRight = async () => {
+  previewPdf.rotation = ((previewPdf.rotation + 90) % 360) as 0 | 90 | 180 | 270;
+  previewPdf.scale = 1.0;
+  await pdfRenderPage(previewPdf.currentPage);
+};
+
+// PDF 打印（FileListing 内嵌详情卡片版）：
+// 策略与 Preview.pdfPrint 完全一致：
+//   A) 页数 <= 100：pdfjs canvas 渲染所有页（带当前 rotation）进临时打印窗口 +
+//      @media print 分页 + 自动 win.print()。
+//   B) 页数 > 100：fetch + blob(强制 application/pdf) + <embed> 在新标签原生预览，
+//      顶部引导横幅，打印时横幅自动隐藏。
+// 根因：之前 iframe.contentWindow.print() 在多数浏览器对 PDF 插件无效，导致 catch
+// → 走 window.open(blobUrl) → 在无 PDF 预览插件的环境里退化成下载文件。
+const FILELISTING_MAX_CANVAS_PRINT = 100;
+const pdfPrint = async () => {
+  const item = previewedItem.value;
+  const rawUrl = item ? fetchRawUrl(item) : "";
+  if (!rawUrl) return;
+
+  let blobUrl: string | null = null;
+
+  try {
+    // 1. 获取 PDF 二进制 Blob
+    const res = await fetch(rawUrl, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: _authHeaders(),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const blob = await res.blob();
+
+    // 检查返回的是否真的是 PDF，防止接口权限报错返回 JSON/HTML 导致页面空白
+    if (blob.type && !blob.type.includes("pdf") && !blob.type.includes("octet-stream")) {
+      const text = await blob.text();
+      console.error("后端返回的不是 PDF 文件流:", text);
+      alert("无法获取有效的 PDF 文件，请检查接口权限或网络！");
+      return;
+    }
+
+    // 强行指定 MIME 类型为 application/pdf
+    const pdfBlob = blob.type === "application/pdf"
+      ? blob
+      : new Blob([blob], { type: "application/pdf" });
+
+    blobUrl = URL.createObjectURL(pdfBlob);
+
+    // 2. 创建隐藏 iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "100%";
+    iframe.style.bottom = "100%";
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.border = "none";
+    iframe.src = blobUrl;
+
+    // 3. 加载与打印触发逻辑
+    iframe.onload = () => {
+      // 解绑 onload 防止二次触发
+      iframe.onload = null;
+
+      // 给浏览器留出 1 秒渲染 PDF 矢量图的时间
+      setTimeout(() => {
+        try {
+          const iframeWin = iframe.contentWindow;
+          const iframeDoc = iframe.contentDocument || iframeWin?.document;
+
+          if (iframeWin && iframeDoc) {
+            // 注入打印控制样式：解决 Chrome 默认强制 100% 缩放导致图纸右侧/底部被截断的问题
+            const style = iframeDoc.createElement("style");
+            style.textContent = `
+              @page {
+                size: auto;   /* 自动按 PDF 原始尺寸/横纵向排版 */
+                margin: 0;    /* 清除边距，防止超出 1 页 */
+              }
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+              }
+            `;
+            iframeDoc.head?.appendChild(style);
+
+            // 唤起原生打印
+            iframeWin.focus();
+            try {
+              iframeWin.print();
+            } catch {
+              iframeDoc.execCommand("print", false);
+            }
+          }
+        } catch (e) {
+          console.error("唤起原生打印失败，降级在新窗口打开:", e);
+          if (blobUrl) window.open(blobUrl, "_blank");
+        }
+
+        // 延迟 1 分钟后清除节点和内存，留足打印设置窗口的维持时间
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+        }, 60000);
+      }, 1000);
+    };
+
+    document.body.appendChild(iframe);
+  } catch (err) {
+    console.error("[pdfPrint] 打印失败:", err);
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    const fallback = item ? getDownloadLink(item) : "";
+    if (fallback) window.open(fallback, "_blank");
+  }
+};
 /* ------------ 7) Markdown / Word / Text 渲染 ------------ */
 const loadMarkdown = async (it: ResourceItem, seq: number) => {
   previewLoadingText.value = "正在解析 Markdown...";
@@ -1749,7 +1916,7 @@ const loadMarkdown = async (it: ResourceItem, seq: number) => {
     breaks: true,
   });
   if (!_seqOk(seq)) return;
-  previewRenderedHtml.value = dompurifyMod.default.sanitize(rawHtml, {
+  previewRenderedHtml.value = dompurifyMod.sanitize(rawHtml, {
     ADD_ATTR: ["target"],
   });
   previewLoading.value = false;
@@ -1757,7 +1924,8 @@ const loadMarkdown = async (it: ResourceItem, seq: number) => {
 
 // 旧版 .doc：调后端 Word COM 转换端点获取 docx 字节
 const fetchConvertedDocBuffer = async (it: ResourceItem): Promise<ArrayBuffer> => {
-  const url = createURL("api/convert/doc" + it.path);
+  const safePath = it.path?.startsWith("/") ? it.path : "/" + (it.path || "");
+  const url = createURL("api/convert/doc" + safePath);
   const resp = await fetch(url, {
     method: "GET",
     headers: _authHeaders(),
@@ -2163,6 +2331,30 @@ const keyEvent = (event: KeyboardEvent) => {
 
     // Show rename prompt.
     layoutStore.showHover("rename");
+  }
+
+  // FileListing 内嵌 PDF 预览快捷键：只有当前详情卡片是 PDF 才生效，
+  // 避免在输入框里误触发（Chrome/Edge PDF 阅读器的 [ / ] 惯例，不需修饰键）。
+  const targetTag = (event.target as HTMLElement)?.tagName;
+  const isInput = targetTag === "INPUT" || targetTag === "TEXTAREA" || targetTag === "SELECT";
+  if (isPdf && !isInput && previewPdf.totalPages > 0) {
+    const mod = event.ctrlKey || event.metaKey;
+    // ⌘P 打印：拦截浏览器默认的页面打印，用我们封装的 PDF 专用打印（鉴权安全）
+    if (mod && (event.key === "p" || event.key === "P")) {
+      event.preventDefault();
+      void pdfPrint();
+      return;
+    }
+    if (event.key === "[" || event.key === "{") {
+      event.preventDefault();
+      void pdfRotateLeft();
+      return;
+    }
+    if (event.key === "]" || event.key === "}") {
+      event.preventDefault();
+      void pdfRotateRight();
+      return;
+    }
   }
 
   // Ctrl is pressed

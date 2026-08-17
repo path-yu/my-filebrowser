@@ -158,6 +158,7 @@ header .menu-button {
   border: 0;
   background-color: transparent;
   padding: 0;
+  color: var(--textPrimary);
 }
 
 /* ---------- #result：现在是 dropdown 浮层，不是全屏撑高 ---------- */

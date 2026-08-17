@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tomasen/realip"
 
+	fbfiles "github.com/filebrowser/filebrowser/v2/files"
 	"github.com/filebrowser/filebrowser/v2/rules"
 	"github.com/filebrowser/filebrowser/v2/runner"
 	"github.com/filebrowser/filebrowser/v2/settings"
@@ -104,4 +105,19 @@ func handle(fn handleFunc, prefix string, store *storage.Storage, server *settin
 	})
 
 	return stripPrefix(prefix, handler)
+}
+
+// applyUserFsMounts 把 d.server.Mounts（多根目录）叠加到 d.user.Fs 之上，
+// 对每个请求调用一次；已被 MountOverlayFs 包过的不再重复包，避免叠加多层。
+func applyUserFsMounts(d *data) {
+	if d == nil || d.user == nil || d.server == nil || len(d.server.Mounts) == 0 {
+		return
+	}
+	if d.user.Fs == nil {
+		return
+	}
+	if _, already := d.user.Fs.(*fbfiles.MountOverlayFs); already {
+		return
+	}
+	d.user.Fs = fbfiles.NewMountOverlayFs(d.user.Fs, d.server.Mounts, afero.NewOsFs())
 }

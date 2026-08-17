@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	fberrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/filebrowser/filebrowser/v2/search"
 )
 
@@ -35,12 +36,12 @@ var searchHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *dat
 				}
 				infoBytes, err = json.Marshal(info)
 			case <-timeout.C:
-			// Send a heartbeat packet and re-arm the timer: without the
-			// reset the one-shot timer fires a single time and long-running
-			// searches stall without heartbeats until an intermediary proxy
-			// kills the idle connection.
-			infoBytes = nil
-			timeout.Reset(searchPingInterval * time.Second)
+				// Send a heartbeat packet and re-arm the timer: without the
+				// reset the one-shot timer fires a single time and long-running
+				// searches stall without heartbeats until an intermediary proxy
+				// kills the idle connection.
+				infoBytes = nil
+				timeout.Reset(searchPingInterval * time.Second)
 			case <-ctx.Done():
 				return
 			}
@@ -64,39 +65,63 @@ var searchHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *dat
 	query := r.URL.Query().Get("query")
 	after, before, applyFilter := parseModifiedRange(r.URL.Query())
 
+	// 统一的搜索关键词拆分（按空白切分，过滤空）
+	queryTokens := strings.Fields(strings.ToLower(query))
+	tokensContainAll := func(s string) bool {
+		ls := strings.ToLower(s)
+		for _, tok := range queryTokens {
+			// 与文件系统搜索保持一致：整词边界匹配（分隔符断开）
+			// 避免 "CQG5" 错误地命中 "WBCQG5" / "CQG50" 这类只是子串的 Code/文件名
+			if !search.ContainsTerm(ls, tok) {
+				return false
+			}
+		}
+		return true
+	}
+
 	// 产品编号检索：query 匹配编号前缀的 PDF 一并作为搜索结果返回（走数据库索引）。
 	// 在文件系统扫描之前输出，保证按编号搜索时结果即时可见。
 	if d.store.ProductCode != nil && query != "" {
 		root := strings.TrimSuffix(r.URL.Path, "/")
-		if entries, err := d.store.ProductCode.FindByCodePrefix(query); err == nil {
-			for _, e := range entries {
-				if root != "" && root != "/" && !strings.HasPrefix(e.Path, root+"/") {
-					continue
+		// 先用第一个词作为前缀索引缩小范围，后续词做 AND 包含过滤
+		if len(queryTokens) > 0 {
+			entries, err := d.store.ProductCode.FindByCodePrefix(queryTokens[0])
+			if err == nil {
+				for _, e := range entries {
+					// 多关键词 AND：Code 需要包含全部关键词
+					if len(queryTokens) > 1 && !tokensContainAll(e.Code) {
+						continue
+					}
+					if root != "" && root != "/" && !strings.HasPrefix(e.Path, root+"/") {
+						continue
+					}
+					if !d.Check(e.Path) {
+						continue
+					}
+					info, err := d.user.Fs.Stat(e.Path)
+					if err != nil || info.IsDir() {
+						continue
+					}
+					if applyFilter && !inModifiedRange(info.IsDir(), info.ModTime(), after, before) {
+						continue
+					}
+					// 文件名本身包含全部关键词时跳过：文件系统扫描会命中它，避免重复结果
+					if tokensContainAll(info.Name()) {
+						continue
+					}
+					select {
+					case <-ctx.Done():
+					case response <- map[string]interface{}{
+						"dir":      false,
+						"path":     e.Path,
+						"name":     info.Name(),
+						"size":     info.Size(),
+						"modified": info.ModTime().UTC().Format(time.RFC3339Nano),
+					}:
+					}
 				}
-				if !d.Check(e.Path) {
-					continue
-				}
-				info, err := d.user.Fs.Stat(e.Path)
-				if err != nil || info.IsDir() {
-					continue
-				}
-				if applyFilter && !inModifiedRange(info.IsDir(), info.ModTime(), after, before) {
-					continue
-				}
-				// 文件名本身已包含关键词时跳过：文件系统扫描会命中它，避免重复结果
-				if strings.Contains(strings.ToLower(info.Name()), strings.ToLower(query)) {
-					continue
-				}
-				select {
-				case <-ctx.Done():
-				case response <- map[string]interface{}{
-					"dir":      false,
-					"path":     e.Path,
-					"name":     info.Name(),
-					"size":     info.Size(),
-					"modified": info.ModTime().UTC().Format(time.RFC3339Nano),
-				}:
-				}
+			} else if !errors.Is(err, fberrors.ErrNotExist) {
+				// 除了 ErrNotExist 外的真实错误暂不抛出，忽略索引结果继续走文件系统扫描
 			}
 		}
 	}

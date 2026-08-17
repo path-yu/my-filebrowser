@@ -47,21 +47,28 @@ func (s *Settings) GetRules() []rules.Rule {
 
 // Server specific settings.
 type Server struct {
-	Root                  string `json:"root"`
-	BaseURL               string `json:"baseURL"`
-	Socket                string `json:"socket"`
-	TLSKey                string `json:"tlsKey"`
-	TLSCert               string `json:"tlsCert"`
-	Port                  string `json:"port"`
-	Address               string `json:"address"`
-	Log                   string `json:"log"`
-	EnableThumbnails      bool   `json:"enableThumbnails"`
-	ResizePreview         bool   `json:"resizePreview"`
-	EnableExec            bool   `json:"enableExec"`
-	TypeDetectionByHeader bool   `json:"typeDetectionByHeader"`
-	ImageResolutionCal    bool   `json:"imageResolutionCalculation"`
-	AuthHook              string `json:"authHook"`
-	TokenExpirationTime   string `json:"tokenExpirationTime"`
+	Root                  string            `json:"root"`
+	// Mounts 定义在根目录（Root）下额外虚拟挂载的目录：
+	//   key   = 挂载点虚拟名（纯文件名，不带 /），会显示在 /files/ 首页的目录列表里
+	//   value = 实际物理路径（本地绝对路径 或 UNC 共享路径）
+	// 用来实现"同时指定多个目录为根目录"的需求，且不会把父目录下其他内容暴露出来。
+	// 例：Mounts["发申江图纸群PDF图纸"] = `\\Sjwh\技术部\发申江图纸群PDF图纸`
+	//     → 访问 /files/发申江图纸群PDF图纸/xxx.pdf 实际走第二套 UNC。
+	Mounts                map[string]string `json:"mounts,omitempty"`
+	BaseURL               string            `json:"baseURL"`
+	Socket                string            `json:"socket"`
+	TLSKey                string            `json:"tlsKey"`
+	TLSCert               string            `json:"tlsCert"`
+	Port                  string            `json:"port"`
+	Address               string            `json:"address"`
+	Log                   string            `json:"log"`
+	EnableThumbnails      bool              `json:"enableThumbnails"`
+	ResizePreview         bool              `json:"resizePreview"`
+	EnableExec            bool              `json:"enableExec"`
+	TypeDetectionByHeader bool              `json:"typeDetectionByHeader"`
+	ImageResolutionCal    bool              `json:"imageResolutionCalculation"`
+	AuthHook              string              `json:"authHook"`
+	TokenExpirationTime   string            `json:"tokenExpirationTime"`
 }
 
 // Clean cleans any variables that might need cleaning.

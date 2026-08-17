@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -107,10 +108,27 @@ func errString(err error) string {
 	return err.Error()
 }
 
+// normalizeProductPath 统一产品编号相关的“用户可见路径”：
+//   - 去掉 "/files" 前缀（前端有时会把 url 当作 path 传过来）
+//   - 保证以 "/" 开头
+//
+// 这样数据库存储、批量查询、单项查询的 key 始终一致，避免“保存了但列表不显示”。
+func normalizeProductPath(p string) string {
+	if strings.HasPrefix(p, "/files/") {
+		p = p[len("/files"):]
+	} else if p == "/files" {
+		p = "/"
+	}
+	if p == "" || !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return p
+}
+
 // GET /api/productcode/{path} — 查询单个 PDF 的产品编号。
 // 数据库优先；未命中时回读 PDF 元数据（离线拷贝回的文件也能识别）并回填数据库。
 var productCodeGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
-	p := strings.TrimSuffix(r.URL.Path, "/")
+	p := normalizeProductPath(strings.TrimSuffix(r.URL.Path, "/"))
 	if p == "" || !isPDFPath(p) {
 		return http.StatusBadRequest, nil
 	}
@@ -156,7 +174,7 @@ type productCodePutResult struct {
 //  1. 数据库（查询索引）总是写入成功才算成功；
 //  2. PDF Keywords 元数据尽力写入（离线可追溯），失败时在响应里说明原因。
 var productCodePutHandler = withPermModify(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
-	p := strings.TrimSuffix(r.URL.Path, "/")
+	p := normalizeProductPath(strings.TrimSuffix(r.URL.Path, "/"))
 	if p == "" || !isPDFPath(p) {
 		return http.StatusBadRequest, nil
 	}
@@ -214,29 +232,52 @@ var productCodeBatchHandler = withUser(func(w http.ResponseWriter, r *http.Reque
 	var body productCodeBatchBody
 	if r.Body != nil {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			// 空请求体（0 字节）时 Decode 返回 io.EOF，语义等价于「没有 paths」，
+			// 和空 paths 一样返回空映射，避免代理/中间件偶发发空 body 时出现 400 报错。
+			if errors.Is(err, io.EOF) {
+				return renderJSON(w, r, map[string]string{})
+			}
 			return http.StatusBadRequest, err
 		}
 		defer r.Body.Close()
 	}
-	if len(body.Paths) == 0 || len(body.Paths) > 1000 {
-		return http.StatusBadRequest, nil
+	// 单次请求允许的最大路径数。注意：这里的匹配逻辑是「一次性读取 DB 全量 → 建内存
+	// HashMap 索引 → paths 逐条 O(1) 查」，所以即便是 10w 级别也只是纯 CPU，没有
+	// N+1 DB 请求，性能不是瓶颈。设 100k 主要为了防极端大请求体把内存打爆。
+	const maxBatchPaths = 100_000
+	if len(body.Paths) > maxBatchPaths {
+		return http.StatusBadRequest, fmt.Errorf("too many paths: %d (max %d)", len(body.Paths), maxBatchPaths)
+	}
+	// 空 Paths 语义上表示「本次没有 PDF 需要查产品编号」，返回空映射即可，
+	// 避免前端在「目录里没有 PDF 文件 / 当前搜索结果没有 PDF」时出现 400 报错。
+	if len(body.Paths) == 0 {
+		return renderJSON(w, r, map[string]string{})
 	}
 
 	all, err := d.store.ProductCode.All()
 	if err != nil && !errors.Is(err, fberrors.ErrNotExist) {
 		return http.StatusInternalServerError, err
 	}
+	// 对数据库中所有 Entry.Path 也做归一化后建立索引，
+	// 兼容历史上可能写入的带 /files 前缀或无前缀的老数据。
 	index := make(map[string]string, len(all))
 	for _, e := range all {
-		index[e.Path] = e.Code
+		norm := normalizeProductPath(e.Path)
+		// 只保留第一条（All 返回顺序不确定，重复时 Code 相同则无影响）
+		if _, exists := index[norm]; !exists {
+			index[norm] = e.Code
+		}
 	}
 
 	out := make(map[string]string, len(body.Paths))
 	for _, p := range body.Paths {
-		if !isPDFPath(p) || !d.Check(p) {
+		normP := normalizeProductPath(p)
+		if !isPDFPath(normP) || !d.Check(normP) {
 			continue
 		}
-		if code, ok := index[p]; ok {
+		if code, ok := index[normP]; ok {
+			// 返回时使用「原始传入的 p」作为 key，避免前端键名不匹配；
+			// 前端 setProductCodes 还会进一步双写兜底。
 			out[p] = code
 		}
 	}

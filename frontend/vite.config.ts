@@ -32,6 +32,8 @@ export default defineConfig(({ command }) => {
       plugins,
       resolve,
       server: {
+        host: '0.0.0.0', // 允许外部/穿透网关访问
+        allowedHosts: true, // 允许所有 Host 域名访问
         proxy: {
           "/api/command": {
             target: "ws://127.0.0.1:8080",

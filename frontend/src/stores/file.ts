@@ -89,11 +89,15 @@ export const useFileStore = defineStore("file", {
       // 搜索 API 只用了 "dir" 字段（后端 http/search.go），这里兼容映射
       const isDir: boolean =
         typeof item.isDir === "boolean" ? item.isDir : !!item.dir;
+      const rawPath: string = item.path ?? "";
+      // 规范化路径：始终以 "/" 开头，避免后续拼接 "api/raw" + "filename" → "api/rawfilename"
+      const normalizedPath =
+        rawPath === "" ? "/" : rawPath.startsWith("/") ? rawPath : "/" + rawPath;
       const rawName: string =
         item.name ??
-        (item.path
+        (rawPath
           ? (() => {
-              const p = item.path.replace(/\/+$/, "");
+              const p = rawPath.replace(/\/+$/, "");
               const slash = p.lastIndexOf("/");
               return slash >= 0 ? p.slice(slash + 1) : p;
             })()
@@ -107,7 +111,7 @@ export const useFileStore = defineStore("file", {
       })();
       return {
         index: idx,
-        path: item.path ?? "",
+        path: normalizedPath,
         name: rawName,
         size:
           typeof item.size === "number"
@@ -130,9 +134,23 @@ export const useFileStore = defineStore("file", {
     clearFile() {
       this.$reset();
     },
-    /** 批量设置当前列表的产品编号映射 */
+    /** 批量设置当前列表的产品编号映射
+     *  与 updateProductCode 保持一致：每条记录同时写入「纯 /xxx」和「/files/xxx」
+     *  两种 key，避免 item.path / item.url 两种格式之间不匹配导致 subtitle 不显示。 */
     setProductCodes(map: Record<string, string>) {
-      this.productCodes = map;
+      const out: Record<string, string> = {};
+      for (const [rawKey, code] of Object.entries(map)) {
+        if (!code) continue;
+        const keys = new Set<string>();
+        keys.add(rawKey);
+        if (rawKey.startsWith("/files/")) {
+          keys.add(rawKey.slice(6) === "" ? "/" : rawKey.slice(6));
+        } else {
+          keys.add("/files" + (rawKey.startsWith("/") ? "" : "/") + rawKey);
+        }
+        for (const k of keys) out[k] = code;
+      }
+      this.productCodes = out;
     },
     /**
      * 编辑产品编号后的即时同步：

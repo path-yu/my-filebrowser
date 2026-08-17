@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -103,6 +104,9 @@ func addServerFlags(flags *pflag.FlagSet) {
 	flags.StringP("cert", "t", "", "tls certificate")
 	flags.StringP("key", "k", "", "tls key")
 	flags.StringP("root", "r", ".", "root to prepend to relative paths")
+	// --mount=虚拟名:物理路径 可多次传入，用来把多个本地/UNC 目录作为虚拟子目录挂到 Root 首页。
+	// 例：--mount "发申江图纸群PDF图纸:\\Sjwh\技术部\发申江图纸群PDF图纸"
+	flags.StringSlice("mount", nil, `extra mounts injected as top-level virtual directories under --root. Repeatable. Syntax: "name:/absolute/or/unc/path"`)
 	flags.String("socket", "", "socket to listen to (cannot be used with address, port, cert nor key flags)")
 	flags.StringP("baseURL", "b", "", "base url")
 	// 默认会话有效期 = 30 天（720h），接近"持久登录"的体感。
@@ -316,6 +320,41 @@ func getServerSettings(v *viper.Viper, st *storage.Storage) (*settings.Server, e
 
 	if v.IsSet("root") {
 		server.Root = v.GetString("root")
+	}
+
+	if v.IsSet("mount") {
+		raw := v.GetStringSlice("mount")
+		mounts := make(map[string]string, len(raw))
+		for _, entry := range raw {
+			entry = strings.TrimSpace(entry)
+			if entry == "" {
+				continue
+			}
+			// 语法：虚拟名:物理路径
+			// 注意：Windows UNC 物理路径会以 \ 开头，所以用第一个 ':' 切开，不要用 SplitN 后的 path 再拼
+			idx := strings.Index(entry, ":")
+			if idx <= 0 || idx == len(entry)-1 {
+				// Windows 盘符也可能是 "D:\\foo"，但这里是 mount 定义的 name:path，
+				// 如果 name 是长度 1 的字母且后面跟 "\\..."，更像误传盘符路径，直接跳过免得污染。
+				log.Printf("[WARN] ignore invalid --mount entry %q (expected \"name:path\")", entry)
+				continue
+			}
+			name := strings.TrimSpace(entry[:idx])
+			path := strings.TrimSpace(entry[idx+1:])
+			if name == "" || path == "" {
+				log.Printf("[WARN] ignore invalid --mount entry %q", entry)
+				continue
+			}
+			// 虚拟名必须是纯文件名，不允许 / 或 \ 或 ..，避免挂载点路径穿越
+			if strings.ContainsAny(name, `/\:*?"<>|`) || name == "." || name == ".." {
+				log.Printf("[WARN] ignore invalid mount name %q (must be plain filename)", name)
+				continue
+			}
+			mounts[name] = path
+		}
+		if len(mounts) > 0 {
+			server.Mounts = mounts
+		}
 	}
 
 	if v.IsSet("socket") {

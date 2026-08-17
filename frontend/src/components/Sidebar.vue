@@ -106,7 +106,7 @@
     </template>
 
     <!-- iCloud 风格半圆存储容量仪表 -->
-    <div
+    <!-- <div
       class="credits storage-section"
       v-if="isFiles && !disableUsedPercentage"
     >
@@ -114,7 +114,7 @@
       <p class="storage-text">
         {{ $t("sidebar.diskUsed", { used: usage.used, total: usage.total }) }}
       </p>
-    </div>
+    </div> -->
 
     <p class="credits">
       <span>

@@ -226,7 +226,7 @@ async function postResources(
       reject(new Error("001 Connection aborted"));
     };
 
-    request.send(bufferContent || content);
+request.send((bufferContent || content) as XMLHttpRequestBodyInit);
   });
 }
 
@@ -267,12 +267,18 @@ export async function checksum(url: string, algo: ChecksumAlg) {
   return (await data.json()).checksums[algo];
 }
 
+/** 保证路径以 "/" 开头，避免与前缀（如 "api/raw"）直接拼接成错误的 "api/rawfilename" */
+function ensureLeadingSlash(p: string): string {
+  if (!p) return "/";
+  return p.startsWith("/") ? p : "/" + p;
+}
+
 export function getDownloadURL(file: ResourceItem, inline: any) {
   const params = {
     ...(inline && { inline: "true" }),
   };
 
-  return createURL("api/raw" + file.path, params);
+  return createURL("api/raw" + ensureLeadingSlash(file.path), params);
 }
 
 export function getPreviewURL(file: ResourceItem, size: string) {
@@ -281,7 +287,7 @@ export function getPreviewURL(file: ResourceItem, size: string) {
     key: Date.parse(file.modified),
   };
 
-  return createURL("api/preview/" + size + file.path, params);
+  return createURL("api/preview/" + size + ensureLeadingSlash(file.path), params);
 }
 
 export function getSubtitlesURL(file: ResourceItem) {
@@ -289,7 +295,7 @@ export function getSubtitlesURL(file: ResourceItem) {
     inline: "true",
   };
 
-  return file.subtitles?.map((d) => createURL("api/subtitle" + d, params));
+  return file.subtitles?.map((d) => createURL("api/subtitle" + ensureLeadingSlash(d), params));
 }
 
 export async function usage(url: string, signal: AbortSignal) {

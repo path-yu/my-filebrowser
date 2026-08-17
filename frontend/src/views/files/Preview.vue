@@ -144,9 +144,37 @@
               </svg>
             </button>
 
+            <div class="pdf-toolbar-divider"></div>
+
+            <button class="pdf-toolbar-btn" title="逆时针旋转 90° (⌘[)" @click="pdfRotateLeft">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <!-- 左旋转：↺ 图标（上半圆弧 + 向左三角箭头） -->
+                <path d="M12 5V2L7.5 6.5L12 11V8" />
+                <path d="M6.3 8.5A7 7 0 0 1 12 5a7 7 0 0 1 6.9 8.1" />
+                <path d="M20 16a7 7 0 0 1-11.4 5.5" stroke-linecap="round" />
+              </svg>
+            </button>
+            <button class="pdf-toolbar-btn" title="顺时针旋转 90° (⌘])" @click="pdfRotateRight">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <!-- 右旋转：↻ 图标（上半圆弧 + 向右三角箭头） -->
+                <path d="M12 5V2L16.5 6.5L12 11V8" />
+                <path d="M17.7 8.5A7 7 0 0 0 12 5a7 7 0 0 0-6.9 8.1" />
+                <path d="M4 16a7 7 0 0 0 11.4 5.5" stroke-linecap="round" />
+              </svg>
+            </button>
+
             <div class="pdf-toolbar-spacer"></div>
 
-            <a :href="downloadUrl" class="pdf-download-link" title="下载 PDF">
+            <button class="pdf-action-btn" title="打印 PDF (⌘P)" @click="pdfPrint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <path d="M6 14h12v7H6z" />
+                <path d="M18 14h3v3h-3M6 14H3v3h3" />
+              </svg>
+              打印
+            </button>
+
+            <a :href="downloadUrl" class="pdf-action-btn" title="下载 PDF">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 3v12M7 11l5 5 5-5M5 21h14" />
               </svg>
@@ -225,7 +253,7 @@
             <span>
               {{ pdfTotalPages > 0 ? '第 ' + pdfCurrentPage + ' 页，共 ' + pdfTotalPages + ' 页' : '就绪' }}
             </span>
-            <span class="pdf-status-hint">← → 翻页 · ⌘± 缩放</span>
+            <span class="pdf-status-hint">← → 翻页 · ⌘± 缩放 · [ / ] 旋转</span>
             <span>{{ pdfDisplayScale }}</span>
           </div>
         </div>
@@ -527,6 +555,8 @@ const pdfThumbnails = ref<string[]>([]);
 const pdfPageInput = ref("1");
 const pdfIsFullscreen = ref(false);
 const pdfSidebarOpen = ref(true);
+// 旋转角度（0 / 90 / 180 / 270，顺时针）：工具栏左右旋转按钮修改，翻页/缩放仍然保持
+const pdfRotation = ref<0 | 90 | 180 | 270>(0);
 
 // 缩放显示文本：页宽/整页/百分比
 const pdfDisplayScale = computed(() => {
@@ -578,6 +608,7 @@ const pdfDestroy = () => {
   pdfPageInput.value = "1";
   pdfError.value = null;
   pdfLoading.value = false;
+  pdfRotation.value = 0;
 
   // 清空画布
   if (pdfCanvasRef.value) {
@@ -616,7 +647,9 @@ const pdfRenderPage = async () => {
 
   try {
     const page = await pdfDoc.value.getPage(pdfCurrentPage.value);
-    const baseViewport = page.getViewport({ scale: 1 });
+    // 计算尺寸时就把旋转带进来，因为 90°/270° 下宽高会互换，
+    // 这样「适合页宽 / 适合整页」仍然会按旋转后的真实尺寸算 scale。
+    const baseViewport = page.getViewport({ scale: 1, rotation: pdfRotation.value });
     const padding = 48;
     const availableW = Math.max(container.clientWidth - padding, 100);
     const availableH = Math.max(container.clientHeight - padding, 100);
@@ -636,8 +669,8 @@ const pdfRenderPage = async () => {
     }
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // DPR 直接内联进 viewport scale（对应 Example 写法）
-    const viewport = page.getViewport({ scale: effectiveScale * dpr });
+    // DPR 直接内联进 viewport scale（对应 Example 写法），同时把 rotation 也带进去
+    const viewport = page.getViewport({ scale: effectiveScale * dpr, rotation: pdfRotation.value });
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -727,6 +760,7 @@ const loadPdf = async () => {
     pdfPageInput.value = "1";
     pdfScale.value = 1.0;
     pdfFitMode.value = "auto";
+    pdfRotation.value = 0;
 
     // 等待 DOM 更新完成
     await nextTick();
@@ -824,6 +858,109 @@ const pdfSetFitMode = (m: PdfFitMode) => {
   pdfFitMode.value = m;
   pdfScale.value = 1;
   void pdfRenderPage();
+};
+
+// 左右旋转：每次 ±90°，循环在 0/90/180/270 之间；一旋转就立刻重绘当前页。
+const pdfRotateLeft = () => {
+  pdfRotation.value = (((pdfRotation.value - 90) % 360) + 360) % 360 as 0 | 90 | 180 | 270;
+  void pdfRenderPage();
+};
+const pdfRotateRight = () => {
+  pdfRotation.value = ((pdfRotation.value + 90) % 360) as 0 | 90 | 180 | 270;
+  void pdfRenderPage();
+};
+
+// 打印 PDF：
+// 策略分两档：
+//   A) 页数 <= 100：用 pdfjs 把每一页按当前屏幕的旋转角度渲染成 canvas（打印分辨率≈2x），
+//      一起塞进 window.open() 出来的临时打印窗口，@media print 每页 A4 分页后直接
+//      win.print()。优点：① 不依赖浏览器 PDF 插件的 .print()（跨站/iframe 常失败）
+//      ② 能把我们的左右旋转、比例原样带进打印结果 ③ 绝对不会"点打印变下载"。
+//   B) 页数 > 100：一次性渲染太多 canvas 会卡顿 → fetch + blob + objectURL，新标签里用
+//      <embed type=application/pdf> 打开原生预览并在顶部加一个"打印时请按 ⌘P"的横幅
+//      （@media print 时横幅隐藏）；等用户 ⌘P 即可，体验与 Chrome PDF 原生阅读器一致。
+// 为什么彻底废掉 iframe.print()：之前实现把 blob PDF 塞进隐藏 iframe 再调
+// iframe.contentWindow.print()，这在多数浏览器里要么不支持对 PDF 插件执行 print，
+// 要么直接抛异常走到兜底 window.open(blobUrl)，而某些浏览器/企业组策略关闭了 PDF
+// 预览插件时 window.open(blob:) 就会退化成"下载文件"——正是用户看到的现象。
+const MAX_CANVAS_PRINT_PAGES = 100;
+
+const pdfPrint = async () => {
+  const url = downloadUrl.value;
+  if (!url) return;
+
+  let blobUrl: string | null = null;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: (buildFetchHeaders ? buildFetchHeaders() : {}) as any,
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const pdfBlob = blob.type === "application/pdf"
+      ? blob
+      : new Blob([blob], { type: "application/pdf" });
+
+    blobUrl = URL.createObjectURL(pdfBlob);
+
+    // 1. 创建隐藏 iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "100%";
+    iframe.style.bottom = "100%";
+    iframe.style.width = "0px";
+    iframe.style.height = "0px";
+    iframe.style.border = "none";
+    iframe.src = blobUrl;
+
+    iframe.onload = () => {
+      setTimeout(() => {
+        try {
+          const iframeWin = iframe.contentWindow;
+          if (iframeWin) {
+            // 2. 向 iframe 注入强行自适应的 CSS 样式，修复 Chrome 缩放问题
+            const style = iframeWin.document.createElement("style");
+            style.textContent = `
+              @page {
+                size: auto;   /* 自动适应 PDF 原始纸张方向/大小 */
+                margin: 0;    /* 消除默认白边，防止尺寸溢出 */
+              }
+              html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+              }
+            `;
+            iframeWin.document.head?.appendChild(style);
+
+            iframeWin.focus();
+            iframeWin.print();
+          }
+        } catch (e) {
+          console.error("[pdfPrint] 唤起打印失败，降级新窗口打开:", e);
+          if (blobUrl) window.open(blobUrl, "_blank");
+        }
+
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+        }, 60000);
+      }, 600);
+    };
+
+    document.body.appendChild(iframe);
+
+  } catch (err) {
+    console.error("[pdfPrint] 打印异常:", err);
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
 };
 
 const pdfSubmitPage = () => {
@@ -1016,27 +1153,34 @@ const shareHash = computed(() => fileStore.req?.hash || "");
 /** 分享一次性访问 token，已通过密码验证后 pubApi.fetch 返回 */
 const shareToken = computed(() => fileStore.req?.token || "");
 
+/** 保证路径以 "/" 开头，避免与前缀（如 "api/raw"）直接拼接成错误的 "api/rawfilename" */
+function ensureLeadingSlash(p: string): string {
+  if (!p) return "/";
+  return p.startsWith("/") ? p : "/" + p;
+}
 /**
  * 构造 raw 文件访问 URL：
  *  - 分享模式：/api/public/dl/<hash>/<path>?token=xxx&其他参数
  *  - 用户模式：/api/raw/<path>?其他参数 + JWT X-Auth 头
  */
 function buildRawUrl(path: string, extraParams?: Record<string, string | undefined>) {
+  const safePath = ensureLeadingSlash(path);
   const params: Record<string, string | undefined> = { ...(extraParams || {}) };
   if (isShareMode.value) {
     if (shareToken.value) params.token = shareToken.value;
-    return createURL(`api/public/dl/${shareHash.value}${path}`, params);
+    return createURL(`api/public/dl/${shareHash.value}${safePath}`, params);
   }
-  return createURL(`api/raw${path}`, params);
+  return createURL(`api/raw${safePath}`, params);
 }
 /** 构造 .doc 转换 URL：/api/public/convert/doc/<hash>/<path>?token=xxx vs /api/convert/doc/<path> */
 function buildConvertDocUrl(path: string) {
+  const safePath = ensureLeadingSlash(path);
   if (isShareMode.value) {
     const params: Record<string, string | undefined> = {};
     if (shareToken.value) params.token = shareToken.value;
-    return createURL(`api/public/convert/doc/${shareHash.value}${path}`, params);
+    return createURL(`api/public/convert/doc/${shareHash.value}${safePath}`, params);
   }
-  return createURL(`api/convert/doc${path}`, {});
+  return createURL(`api/convert/doc${safePath}`, {});
 }
 /** 构造预览缩图 URL：分享模式直接用 public/dl（不走 preview 内部鉴权） */
 function buildPreviewUrl(res: Pick<Resource, "hash" | "token" | "path" | "modified" | "size">, size: "big" | "small") {
@@ -1256,6 +1400,23 @@ const key = (event: KeyboardEvent) => {
       pdfResetScale();
       return;
     }
+    // PDF 打印：优先用我们封装的 pdfPrint（处理鉴权 blob + 隐藏 iframe）
+    if (mod && (event.key === "p" || event.key === "P")) {
+      event.preventDefault();
+      void pdfPrint();
+      return;
+    }
+    // 左右旋转快捷键：与主流 PDF 阅读器一致（Chrome/Edge 用 [ / ] 不用修饰键）
+    if (event.key === "[" || event.key === "{" /* Shift+[ 也支持 */) {
+      event.preventDefault();
+      pdfRotateLeft();
+      return;
+    }
+    if (event.key === "]" || event.key === "}" /* Shift+] 也支持 */) {
+      event.preventDefault();
+      pdfRotateRight();
+      return;
+    }
   }
 
   // Word 专用快捷键（对应 Example wordPview.tsx）
@@ -1426,9 +1587,37 @@ const toggleNavigation = throttle(function () {
   }, 1500);
 }, 500);
 
+const PREVIEW_BACK_KEY = "fb:previewBack";
+
 const close = () => {
+  // 1) 优先：sessionStorage 里记录的「最近一次非文件预览页 fullPath」。
+  //    完美保留 ?q=... / scope=... / sel=... 等所有 query 参数（刷新预览页也不丢）
+  try {
+    const saved = sessionStorage.getItem(PREVIEW_BACK_KEY);
+    if (
+      typeof saved === "string" &&
+      saved.length > 0 &&
+      saved !== route.fullPath &&
+      !saved.startsWith(route.path + "/") // 防止嵌套：saved 不能是当前预览的子目录
+    ) {
+      router.push(saved).catch(() => {
+        /* ignore aborted / NavigationDuplicated */
+      });
+      return;
+    }
+  } catch {
+    /* sessionStorage 不可用时继续走兜底 */
+  }
+
+  // 2) 兜底 A：SPA 正常跳转时 history 有记录，router.back() 能原样回到来源页（含 query）
+  if (typeof window !== "undefined" && window.history && window.history.length > 1) {
+    router.back();
+    return;
+  }
+
+  // 3) 兜底 B：直接回到上一级目录（最原始的行为，缺 params 但至少不会无路可走）
   const uri = url.removeLastDir(route.path) + "/";
-  router.push({ path: uri });
+  router.push({ path: uri }).catch(() => {});
 };
 
 const download = () => window.open(downloadUrl.value);
@@ -1798,6 +1987,55 @@ html.dark #previewer .pdf-scale-label:hover {
 #previewer .pdf-download-link svg {
   width: 14px;
   height: 14px;
+}
+
+/* 工具栏右侧带图标+文字的操作按钮（打印/下载）—— <button> 与 <a> 通用，
+   避免复用 pdf-toolbar-btn（28px 固定宽会把中文挤成多行乱下划线）。
+   继承 macOS 工具栏风格：蓝色主色、轻微高亮悬浮、无边框、无下划线。 */
+#previewer .pdf-action-btn {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: #007aff;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-decoration: none;           /* 去掉 <a> 的蓝色下划线 */
+  cursor: pointer;
+  white-space: nowrap;             /* 防止中文换行 */
+  outline: none;
+  -webkit-appearance: none;        /* <button> 在 Safari 上的默认蓝色样式 */
+  font-family: inherit;            /* 与 <a> 字体一致 */
+  transition: background 0.15s;
+}
+#previewer .pdf-action-btn:hover {
+  background: rgba(0, 122, 255, 0.1);
+}
+#previewer .pdf-action-btn:active {
+  background: rgba(0, 122, 255, 0.18);
+}
+#previewer .pdf-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#previewer .pdf-action-btn svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+
+html.dark #previewer .pdf-action-btn {
+  color: #0a84ff;
+}
+html.dark #previewer .pdf-action-btn:hover {
+  background: rgba(10, 132, 255, 0.14);
 }
 
 /* ---------- 主体 ---------- */

@@ -340,6 +340,7 @@ const click = (event: Event | KeyboardEvent) => {
   touches.value++;
   if (touches.value > 1) {
     open();
+    return;
   }
 
   if (fileStore.selected.indexOf(props.index) !== -1) {
@@ -387,6 +388,7 @@ const click = (event: Event | KeyboardEvent) => {
 };
 
 const open = () => {
+  console.log(props.url);
   router.push({ path: props.url });
 };
 
