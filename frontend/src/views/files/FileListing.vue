@@ -793,7 +793,7 @@ import css from "@/utils/css";
 import { filesize } from "@/utils";
 import { throttle } from "lodash-es";
 import { Base64 } from "js-base64";
-import dayjs = require("dayjs");
+import * as dayjs from "dayjs";
 
 // 重型预览库（pdfjs/marked/dompurify/docx-preview）的惰性加载器：
 // 只在首次预览对应类型文件时才加载，避免拖慢首屏渲染。

@@ -5,6 +5,69 @@ import {
   mockSearchResultSet,
 } from "./mockTimeFilter";
 
+/** 已知图片 / 视频 / 音频扩展名集合（小写，不带点），
+ *  用于给 /api/search 返回的精简条目补齐 extension / type。
+ *  后端 files/file.go 的 detectType 用 MIME + 嗅探更准确，
+ *  但搜索结果为了流式性能只返回最小字段，所以前端用扩展名
+ *  静态映射兜底；无法归类时统一归为 blob。 */
+const IMAGE_EXTS = new Set([
+  "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "tif", "tiff",
+  "heic", "heif", "avif", "ico", "cur",
+]);
+const VIDEO_EXTS = new Set([
+  "mp4", "m4v", "mov", "avi", "mkv", "webm", "flv", "wmv", "mpeg",
+  "mpg", "3gp", "ts", "m2ts", "rmvb", "ogv",
+]);
+const AUDIO_EXTS = new Set([
+  "mp3", "wav", "flac", "aac", "m4a", "ogg", "oga", "opus", "wma",
+  "aiff", "aif", "alac",
+]);
+const TEXT_EXTS = new Set([
+  "txt", "md", "markdown", "log", "csv", "json", "xml", "yaml", "yml",
+  "toml", "ini", "conf", "cfg", "sh", "bat", "cmd", "ps1", "bash",
+  "zsh", "js", "jsx", "ts", "tsx", "vue", "css", "scss", "sass", "less",
+  "html", "htm", "c", "h", "cpp", "cc", "cxx", "hpp", "hh", "rs", "go",
+  "py", "rb", "php", "java", "kt", "swift", "cs", "sql", "lua", "r",
+  "pl", "dart", "ex", "exs", "erl", "hs", "ml", "fs", "vim",
+]);
+
+/** 按文件名补齐 ResourceItem 的 extension + type（用于搜索结果精简响应） */
+function enrichSearchItem(item: ResourceItem): ResourceItem {
+  const anyItem = item as any;
+  // 目录直接定 type=dir
+  if (anyItem.isDir) {
+    anyItem.extension = "";
+    anyItem.type = "dir";
+    anyItem.isSymlink = anyItem.isSymlink ?? false;
+    anyItem.mode = anyItem.mode ?? 0o644;
+    return item;
+  }
+  const name = (item.name ?? "").replace(/\s+$/g, "");
+  let ext = "";
+  const dotIdx = name.lastIndexOf(".");
+  if (dotIdx >= 0) {
+    ext = name.slice(dotIdx);
+  }
+  const extNoDot = ext.length > 1 ? ext.slice(1).toLowerCase() : "";
+  anyItem.extension = ext;
+  let type: "pdf" | "image" | "video" | "audio" | "text" | "blob" = "blob";
+  if (extNoDot === "pdf") {
+    type = "pdf";
+  } else if (IMAGE_EXTS.has(extNoDot)) {
+    type = "image";
+  } else if (VIDEO_EXTS.has(extNoDot)) {
+    type = "video";
+  } else if (AUDIO_EXTS.has(extNoDot)) {
+    type = "audio";
+  } else if (TEXT_EXTS.has(extNoDot)) {
+    type = "text";
+  }
+  anyItem.type = type;
+  anyItem.isSymlink = anyItem.isSymlink ?? false;
+  anyItem.mode = anyItem.mode ?? 0o644;
+  return item;
+}
+
 export interface SearchQueryParams {
   modified_after?: number;
   modified_before?: number;
@@ -101,6 +164,10 @@ export default async function search(
             if ((item as any).isDir && !item.url.endsWith("/")) {
               item.url += "/";
             }
+            // 搜索接口只返回最小字段，补齐 extension / type / mode 等基础字段，
+            // 否则 productCodeTarget / 图标渲染 / 预览入口 / loadProductCodes
+            // 等依赖 item.type 的分支会全部跳过，造成"搜索结果右键无编辑产品编号"。
+            enrichSearchItem(item);
             callback(item);
           }
         }
@@ -122,6 +189,7 @@ export default async function search(
           if ((item as any).isDir && !item.url.endsWith("/")) {
             item.url += "/";
           }
+          enrichSearchItem(item);
           callback(item);
         }
       }

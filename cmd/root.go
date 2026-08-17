@@ -105,7 +105,6 @@ func addServerFlags(flags *pflag.FlagSet) {
 	flags.StringP("key", "k", "", "tls key")
 	flags.StringP("root", "r", ".", "root to prepend to relative paths")
 	// --mount=虚拟名:物理路径 可多次传入，用来把多个本地/UNC 目录作为虚拟子目录挂到 Root 首页。
-	// 例：--mount "发申江图纸群PDF图纸:\\Sjwh\技术部\发申江图纸群PDF图纸"
 	flags.StringSlice("mount", nil, `extra mounts injected as top-level virtual directories under --root. Repeatable. Syntax: "name:/absolute/or/unc/path"`)
 	flags.String("socket", "", "socket to listen to (cannot be used with address, port, cert nor key flags)")
 	flags.StringP("baseURL", "b", "", "base url")

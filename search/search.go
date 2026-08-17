@@ -47,13 +47,122 @@ func IsWordDelim(r rune) bool {
 	return true
 }
 
-// ContainsTerm 判断 fileName 中是否存在 term 作为一个「整词」出现。
-// 使用 rune 级别的匹配，避免 UTF-8 多字节字符（中文、全角空格等）导致的边界判断错误。
-//   - term 的前一个 rune 要么不存在（fileName 开头），要么是 IsWordDelim(...)
-//   - term 的后一个 rune 要么不存在（fileName 结尾），要么是 IsWordDelim(...)
+// splitAlphaNumSegments 把一串 rune 按「字母段 / 数字段」拆分为连续的"段"，
+// 非字母数字（例如中文、Unicode 标点等，只要不是 0-9 / A-Za-z）单独成段保留，
+// 以便中文或混合字符场景下仍能做子串匹配。
 //
-// 这样 "CQG5" 不会命中 WBCQG5 / CQG50，但会命中：
-//   CQG5-0.88.pdf / CQG5 0.88.pdf / CQG5（0.88）.pdf / CQG5氩气.pdf / CQG5 全角空格 0.88.pdf
+// 例：
+//   "CQG50"      → ["CQG", "50"]
+//   "DN150JC"    → ["DN", "150", "JC"]
+//   "ZKG2"       → ["ZKG", "2"]
+//   "0.88"       → ["0", ".", "88"]     （. 非字母数字，单独成段）
+//   "CQG5氩气"   → ["CQG", "5", "氩", "气"]
+func splitAlphaNumSegments(r []rune) [][]rune {
+	if len(r) == 0 {
+		return nil
+	}
+	segs := make([][]rune, 0, 4)
+	start := 0
+	kind := runeKind(r[0])
+	for i := 1; i < len(r); i++ {
+		k := runeKind(r[i])
+		if k != kind {
+			segs = append(segs, r[start:i])
+			start = i
+			kind = k
+		}
+	}
+	segs = append(segs, r[start:])
+	return segs
+}
+
+// runeKind 给 rune 分类：数字(0) / ASCII 字母(1) / 其它(2)
+func runeKind(r rune) int {
+	if r >= '0' && r <= '9' {
+		return 0
+	}
+	if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
+		return 1
+	}
+	return 2
+}
+
+// segsEqual 逐 rune 比较两段是否完全相等
+func segsEqual(a, b []rune) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// identifierMatchesTerm 判断单个标识符（按 IsWordDelim 切出来的连续块）
+// 是否匹配搜索词 term：
+//   - 先把 identifier 与 term 都按「字母段 / 数字段 / 其它段」拆段
+//   - 如果 term 的段序列能作为「连续子数组」出现在 identifier 的段序列里，则匹配
+//
+// 这样同时满足两种语义：
+//   1) CQG5 不匹配 CQG50：CQG5→[CQG,5] vs CQG50→[CQG,50]，长度相同但第二段 "5"!="50"，不命中
+//   2) 150 匹配 DN150JC：150→[150] 与 DN150JC→[DN,150,JC] 第 2 段相等，命中
+//   3) DN150 匹配 DN150JC：DN150→[DN,150] 与 DN150JC 前两段连续相等，命中
+//   4) ZKG2 匹配 ZKG2(-0.1-DN150JC)：ZKG2→[ZKG,2] 等于标识符 ZKG2 两段，命中
+func identifierMatchesTerm(identifier, term []rune) bool {
+	idSegs := splitAlphaNumSegments(identifier)
+	tSegs := splitAlphaNumSegments(term)
+	if len(tSegs) == 0 {
+		return true
+	}
+	if len(tSegs) > len(idSegs) {
+		return false
+	}
+	// 滑动窗口：term 的段序列必须是 identifier 段序列的连续子数组
+outer:
+	for k := 0; k+len(tSegs) <= len(idSegs); k++ {
+		for j := range tSegs {
+			if !segsEqual(idSegs[k+j], tSegs[j]) {
+				continue outer
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// splitByWordDelim 按 IsWordDelim 把 rune 切片拆成多个非空片段
+func splitByWordDelim(r []rune) [][]rune {
+	var out [][]rune
+	start := 0
+	for i := 0; i <= len(r); i++ {
+		if i == len(r) || IsWordDelim(r[i]) {
+			if i > start {
+				out = append(out, r[start:i])
+			}
+			start = i + 1
+		}
+	}
+	return out
+}
+
+// ContainsTerm 判断 fileName 中是否存在 term 的匹配。
+// 语义两步：
+//   A) 按 IsWordDelim 分别切 fileName 和 term：
+//        - fileName → identifiers（非空块，比如 "ZKG2 (-0.1-DN150JC) .pdf" → [ZKG2, 0, 1, DN150JC, pdf]）
+//        - term     → termFragments（比如 "0.88" → [0, 88]；"ZKG2" → [ZKG2]）
+//   B) 对每个 termFragment，按 identifierMatchesTerm 的段级连续子数组匹配，
+//        要求它命中任意一个 identifier。所有 termFragment 都命中 → 返回 true。
+//
+// 这样解决两类问题：
+//   - "CQG5 0.88" 多关键词 AND：每个 term 单独匹配（search.Search 外层循环）
+//   - "0.88" 单 term 里含分隔符（. - _ 等）：自动拆成 [0,88]，要求在文件名里都能找到（AND）
+//
+// 段级匹配保留产品编号语义：
+//   - CQG5 不匹配 CQG50：[CQG,5] vs [CQG,50] 段值不对
+//   - 150 匹配 DN150JC：[150] 段在 [DN,150,JC] 里存在
+//   - DN150 匹配 DN150JC：[DN,150] 是 [DN,150,JC] 的前缀连续子数组
 func ContainsTerm(fileName, term string) bool {
 	if term == "" {
 		return true
@@ -62,38 +171,35 @@ func ContainsTerm(fileName, term string) bool {
 		return true
 	}
 
-	// 统一转成 rune 切片，彻底避免 UTF-8 字节偏移困扰
 	fr := []rune(fileName)
 	tr := []rune(term)
-	n := len(fr)
-	m := len(tr)
-	if m > n {
+	if len(tr) > len(fr) {
 		return false
 	}
 
-	for i := 0; i+m <= n; i++ {
-		// 快速失败：首位 rune 不相等直接跳过（避免每轮全量比较）
-		if fr[i] != tr[0] {
-			continue
-		}
-		// 检查 term 全部 rune 是否匹配
-		match := true
-		for j := 1; j < m; j++ {
-			if fr[i+j] != tr[j] {
-				match = false
-				break
+	// 文件名按词边界切标识符
+	idents := splitByWordDelim(fr)
+	if len(idents) == 0 {
+		return false
+	}
+	// 搜索词本身也按词边界拆（比如 "0.88" → ["0","88"]）
+	termFrags := splitByWordDelim(tr)
+	if len(termFrags) == 0 {
+		return true
+	}
+
+	// 每个 term 片段必须至少命中一个标识符（AND 语义）
+outer:
+	for _, tf := range termFrags {
+		for _, id := range idents {
+			if identifierMatchesTerm(id, tf) {
+				continue outer
 			}
 		}
-		if !match {
-			continue
-		}
-		frontOK := i == 0 || IsWordDelim(fr[i-1])
-		backOK := i+m == n || IsWordDelim(fr[i+m])
-		if frontOK && backOK {
-			return true
-		}
+		// 有一个片段在所有标识符里都找不到 → 整体失败
+		return false
 	}
-	return false
+	return true
 }
 
 type searchOptions struct {

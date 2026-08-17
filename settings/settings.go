@@ -52,8 +52,6 @@ type Server struct {
 	//   key   = 挂载点虚拟名（纯文件名，不带 /），会显示在 /files/ 首页的目录列表里
 	//   value = 实际物理路径（本地绝对路径 或 UNC 共享路径）
 	// 用来实现"同时指定多个目录为根目录"的需求，且不会把父目录下其他内容暴露出来。
-	// 例：Mounts["发申江图纸群PDF图纸"] = `\\Sjwh\技术部\发申江图纸群PDF图纸`
-	//     → 访问 /files/发申江图纸群PDF图纸/xxx.pdf 实际走第二套 UNC。
 	Mounts                map[string]string `json:"mounts,omitempty"`
 	BaseURL               string            `json:"baseURL"`
 	Socket                string            `json:"socket"`
