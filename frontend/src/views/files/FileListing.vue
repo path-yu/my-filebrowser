@@ -39,6 +39,13 @@
             show="move"
           />
           <action
+            v-if="headerButtons.mergePdf"
+            id="merge-pdf-button"
+            icon="call_merge"
+            :label="t('buttons.mergePdf')"
+            show="mergePdf"
+          />
+          <action
             v-if="headerButtons.delete"
             id="delete-button"
             icon="delete"
@@ -136,6 +143,12 @@
         icon="forward"
         :label="t('buttons.moveFile')"
         show="move"
+      />
+      <action
+        v-if="headerButtons.mergePdf"
+        icon="call_merge"
+        :label="t('buttons.mergePdf')"
+        show="mergePdf"
       />
       <action
         v-if="headerButtons.delete"
@@ -388,6 +401,12 @@
               icon="forward"
               :label="t('buttons.moveFile')"
               show="move"
+            />
+            <action
+              v-if="headerButtons.mergePdf"
+              icon="call_merge"
+              :label="t('buttons.mergePdf')"
+              show="mergePdf"
             />
             <action
               v-if="headerButtons.delete"
@@ -2185,6 +2204,17 @@ const setView = async (mode: string) => {
 };
 
 const headerButtons = computed(() => {
+  const items = fileStore.selectedItems as any[];
+  const isAllPdf =
+    fileStore.selectedCount >= 2 &&
+    items.every(
+      (it) =>
+        it &&
+        !it.isDir &&
+        (it.type === "pdf" ||
+          (typeof it.extension === "string" &&
+            it.extension.toLowerCase() === "pdf"))
+    );
   return {
     upload: authStore.user?.perm.create,
     download: authStore.user?.perm.download,
@@ -2197,6 +2227,7 @@ const headerButtons = computed(() => {
       authStore.user?.perm.download,
     move: fileStore.selectedCount > 0 && authStore.user?.perm.rename,
     copy: fileStore.selectedCount > 0 && authStore.user?.perm.create,
+    mergePdf: isAllPdf && !!authStore.user?.perm.download,
   };
 });
 

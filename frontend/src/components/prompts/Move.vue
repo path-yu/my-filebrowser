@@ -77,13 +77,14 @@ export default {
   },
   inject: ["$showError"],
   computed: {
-    ...mapState(useFileStore, ["req", "selected"]),
+    ...mapState(useFileStore, ["req", "selected", "visibleItemAt"]),
     ...mapState(useAuthStore, ["user"]),
     ...mapWritableState(useFileStore, ["reload", "preselect"]),
     excludedFolders() {
       return this.selected
-        .filter((idx) => this.req.items[idx].isDir)
-        .map((idx) => this.req.items[idx].url);
+        .map((idx) => this.visibleItemAt(idx))
+        .filter((it) => it && it.isDir)
+        .map((it) => it && it.url);
     },
   },
   methods: {
@@ -92,14 +93,16 @@ export default {
       event.preventDefault();
       const items = [];
 
-      for (const item of this.selected) {
+      for (const idx of this.selected) {
+        const it = this.visibleItemAt(idx);
+        if (!it) continue;
         items.push({
-          from: this.req.items[item].url,
-          to: this.dest + encodeURIComponent(this.req.items[item].name),
-          name: this.req.items[item].name,
-          size: this.req.items[item].size,
-          isDir: this.req.items[item].isDir,
-          modified: this.req.items[item].modified,
+          from: it.url,
+          to: this.dest + encodeURIComponent(it.name),
+          name: it.name,
+          size: it.size,
+          isDir: it.isDir,
+          modified: it.modified,
           overwrite: false,
           rename: false,
         });

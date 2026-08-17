@@ -1,66 +1,145 @@
 <template>
   <!-- macOS Finder 风格：内联搜索框 + 下拉结果浮层
-       不再使用旧版 layoutStore.showHover('search') 弹出的全屏 overlay。
-       用户点一下就直接聚焦输入，有内容/结果时就地展开下拉浮层。 -->
+       支持「单选/单关键词」和「多选/多标签 OR 聚合」两种模式。
+       多选模式下：输入一个词回车 -> 生成标签，输入下一个回车再新增标签，
+       标签可单独点击编辑（改完回车保存），每个标签可以×单独删除。
+       「单/多选」切换按钮直接放在搜索框同一行的右侧，不再占独立一行。-->
   <div
     id="search"
     v-bind:class="{ ongoing, open: showDropdown, focused: inputFocused }"
   >
-    <div id="input" :class="{ focused: inputFocused }" @click.stop="focusInput">
-      <i class="material-icons search-icon">search</i>
-      <input
-        type="text"
-        style="line-height: 2"
-        @focus="
-          inputFocused = true;
-          maybeOpenDropdown();
-        "
-        @blur="onInputBlur"
-        @input="onInput"
-        @keyup.enter="submit"
-        @keydown="keydown"
-        ref="input"
-        v-model.trim="prompt"
-        :aria-label="$t('search.search')"
-        :placeholder="$t('search.search')"
-      />
-      <!-- 清除 × 按钮（macOS Finder 风格） -->
-      <button
-        v-show="prompt.length > 0"
-        type="button"
-        class="clear-btn"
-        @mousedown.prevent.stop="clearPrompt"
-        @click.stop.prevent="clearPrompt"
-        :aria-label="$t('buttons.clear')"
-        :title="$t('buttons.clear')"
+    <!-- 输入框 + 单/多选切换按钮 + 关键词标签（三个元素同一行从左到右排列）
+         顺序：搜索框 | 模式切换 | 关键词标签  （标签行和模式切换都在 #input 容器外面，都是兄弟节点，并排）
+         用户要求："关键词列表也应该在切换菜单最右边" —— 即标签不要占搜索框上面的独立行，
+         而是和模式切换放到同一行，紧贴其右侧，所有控件挤在一行。-->
+    <div class="search-control-row">
+      <div id="input" :class="{ focused: inputFocused, multi: multiMode }" @click.stop="focusInput">
+        <i class="material-icons search-icon">search</i>
+        <input
+          type="text"
+          style="line-height: 2"
+          @focus="
+            inputFocused = true;
+            maybeOpenDropdown();
+          "
+          @blur="onInputBlur"
+          @input="onInput"
+          @keyup.enter="submit"
+          @keydown="keydown"
+          ref="input"
+          v-model.trim="prompt"
+          :aria-label="$t('search.search')"
+          :placeholder="multiMode ? $t('search.multiPlaceholder') : $t('search.search')"
+        />
+        <!-- 清除 × 按钮（macOS Finder 风格） -->
+        <button
+          v-show="hasAnythingToClear"
+          type="button"
+          class="clear-btn"
+          @mousedown.prevent.stop="clearPrompt"
+          @click.stop.prevent="clearPrompt"
+          :aria-label="$t('buttons.clear')"
+          :title="$t('buttons.clear')"
+        >
+          <i class="material-icons">cancel</i>
+        </button>
+        <span
+          class="count-badge"
+          v-if="
+            (results.length > 0 || fileStore.searchResults.length > 0) &&
+            hasAnythingToClear
+          "
+        >
+          {{
+            fileStore.searchMode ? fileStore.searchResults.length : results.length
+          }}
+        </span>
+      </div>
+      <!-- ⚠ 单/多选模式切换（Finder segmented 风格）—— 在 #input 容器外面，和搜索框并排。-->
+      <div class="finder-segmented finder-segmented--mode" role="tablist" :aria-label="$t('search.modeLabel')">
+        <button
+          type="button"
+          role="tab"
+          :class="{ active: !multiMode }"
+          @mousedown.prevent.stop
+          @click.stop.prevent="setMode('single')"
+          :aria-pressed="!multiMode"
+        >
+          <i class="material-icons">search</i>
+          <span>{{ $t("search.modeSingle") }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :class="{ active: multiMode }"
+          @mousedown.prevent.stop
+          @click.stop.prevent="setMode('multi')"
+          :aria-pressed="multiMode"
+        >
+          <i class="material-icons">label</i>
+          <span>{{ $t("search.modeMulti") }}</span>
+          <span v-if="tags.length > 0" class="mode-badge">{{ tags.length }}</span>
+        </button>
+      </div>
+      <!-- ⚠ 多选模式：关键词标签列表——用户要求放到「切换菜单最右边」，所以和模式切换同一个 flex 行，
+           放在分段控件右侧（紧挨着），不再占搜索框上面的独立一行。标签过多时横向滚动。
+           v-if 条件保留：只有多选模式下且（已有标签 / 聚焦 / 正在输入）才显示空容器占位也可以 -->
+      <ul
+        v-if="multiMode"
+        class="search-tags"
+        aria-label="keywords"
+        :class="{ 'is-empty': tags.length === 0 && !inputFocused && prompt.length === 0 }"
       >
-        <i class="material-icons">cancel</i>
-      </button>
-      <!-- <i
-        v-show="ongoing"
-        class="material-icons spin"
-        style="display: inline-block"
-        >autorenew
-      </i> -->
-      <span
-        class="count-badge"
-        v-if="
-          (results.length > 0 || fileStore.searchResults.length > 0) &&
-          prompt.length > 0
-        "
-      >
-        {{
-          fileStore.searchMode ? fileStore.searchResults.length : results.length
-        }}
-      </span>
+        <li
+          v-for="(t, i) in tags"
+          :key="i"
+          class="search-tag"
+          :class="{
+            editing: editingTagIdx === i,
+            searching: perKeywordProgress[i]?.finished === false,
+          }"
+        >
+          <!-- 编辑态：把 tag 文本放回输入框里，但视觉上仍保留该 tag 高亮 -->
+          <button
+            v-if="editingTagIdx !== i"
+            type="button"
+            class="search-tag__text"
+            @mousedown.prevent.stop
+            @click.stop.prevent="startEditTag(i)"
+            :title="$t('search.editTagTitle')"
+          >
+            <span v-if="perKeywordProgress[i]" class="search-tag__count">
+              {{ perKeywordProgress[i].finished ? perKeywordProgress[i].count : `${perKeywordProgress[i].partialCount ?? 0}…` }}
+            </span>
+            <span class="search-tag__label">{{ t }}</span>
+            <span v-if="perKeywordProgress[i]?.finished === false" class="search-tag__spinner">
+              <i class="material-icons spin">autorenew</i>
+            </span>
+          </button>
+          <span v-else class="search-tag__text search-tag__text--editing" aria-label="editing">
+            <i class="material-icons" style="font-size: 14px">edit</i>
+            <span class="search-tag__label">{{ t }}</span>
+          </span>
+          <button
+            type="button"
+            class="search-tag__remove"
+            @mousedown.prevent.stop
+            @click.stop.prevent="removeTag(i)"
+            :aria-label="$t('buttons.delete') + ': ' + t"
+            :title="$t('buttons.delete')"
+          >
+            <i class="material-icons">close</i>
+          </button>
+        </li>
+      </ul>
     </div>
 
     <!-- 内联下拉结果浮层（替代旧的全屏 overlay） -->
     <transition name="search-dropdown">
       <div id="result" ref="result" v-show="showDropdown" @mousedown.prevent>
         <div>
-          <!-- Finder 工具条：范围分段 + 结果计数 -->
-          <div v-if="prompt.length > 0" class="finder-toolbar">
+          <!-- Finder 工具条：范围分段 + 结果计数 + 多模式时的关键词状态 -->
+          <div v-if="hasToolbar" class="finder-toolbar">
             <div
               class="finder-segmented"
               role="tablist"
@@ -87,18 +166,27 @@
                 {{ $t("search.scopeAll") }}
               </button>
             </div>
-            <div v-if="ongoing" class="finder-count searching">
-              {{ $t("search.searching") }}
-            </div>
-            <div v-else class="finder-count">
-              {{ $t("search.foundCount", { count: results.length }) }}
+            <div class="finder-toolbar-right">
+              <span v-if="ongoing" class="finder-count searching">
+                {{
+                  multiMode
+                    ? $t("search.multiSearching", {
+                        done: multiDoneCount,
+                        total: tags.length,
+                      })
+                    : $t("search.searching")
+                }}
+              </span>
+              <span v-else class="finder-count">
+                {{ $t("search.foundCount", { count: results.length }) }}
+              </span>
             </div>
           </div>
 
           <template v-if="isEmpty">
             <p class="result-tip">{{ text }}</p>
 
-            <template v-if="prompt.length === 0">
+            <template v-if="prompt.length === 0 && (!multiMode || tags.length === 0)">
               <div class="boxes">
                 <h3>{{ $t("search.types") }}</h3>
                 <div>
@@ -124,7 +212,7 @@
                 <i v-else class="material-icons">insert_drive_file</i>
                 <span>
                   <template
-                    v-for="(seg, i) in splitByKeyword(s.path, prompt)"
+                    v-for="(seg, i) in highlightPathByKeywords(s.path)"
                     :key="`${k}-${i}-${seg.text}`"
                   >
                     <span v-if="seg.match" class="search-match">{{
@@ -146,8 +234,8 @@
 import { useFileStore } from "@/stores/file";
 
 import url from "@/utils/url";
-import { search } from "@/api";
-import { splitByKeyword } from "@/utils/highlight";
+import { search, searchMulti } from "@/api";
+import { StatusError } from "@/api/utils";
 import { resolveTimeFilter, timeFilter } from "@/composables/timeFilter";
 import {
   computed,
@@ -160,7 +248,6 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import { StatusError } from "@/api/utils";
 
 const boxes = {
   image: { label: "images", icon: "insert_photo" },
@@ -173,6 +260,18 @@ type SearchScope = "current" | "all";
 
 const fileStore = useFileStore();
 let searchAbortController = new AbortController();
+
+// ------ 单/多选模式 + 标签状态 ------
+const MODE_STORAGE_KEY = "fb.search.mode";
+const TAGS_SEP = "|"; // URL query 里区分多关键词的分隔符（避免空格/逗号和用户输入冲突）
+
+const multiMode = ref<boolean>(false);
+const tags = ref<string[]>([]);
+const editingTagIdx = ref<number | null>(null);
+/** 每个关键词实时进度（正在搜多少条、是否完成） */
+const perKeywordProgress = ref<
+  { keyword: string; count: number; partialCount: number; finished: boolean }[]
+>([]);
 
 const prompt = ref<string>("");
 const ongoing = ref<boolean>(false);
@@ -192,22 +291,87 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-/** 把当前搜索词（以及非默认 scope）写入 URL query params，
- *  刷新后可自动回填。用 replace 避免产生历史记录（后退按钮更顺）。
- *  q 为空时会把 q / scope 一起从 URL 里去掉。
- *  捕获并忽略 router.replace 的 NavigationDuplicated 等异常（重复同值替换本身就是 safe 的）。 */
-const persistQueryInUrl = (q: string, s: SearchScope) => {
+const hasAnythingToClear = computed(
+  () =>
+    prompt.value.length > 0 ||
+    tags.value.length > 0 ||
+    ongoing.value ||
+    results.value.length > 0
+);
+const hasToolbar = computed(
+  () =>
+    prompt.value.length > 0 ||
+    (multiMode.value && tags.value.length > 0) ||
+    ongoing.value
+);
+const multiDoneCount = computed(() =>
+  perKeywordProgress.value.filter((p) => p.finished).length
+);
+
+// --------- 工具：高亮路径（支持多关键词）---------
+/** 把 path 里命中任意关键词的片段用 <search-match> 高亮 */
+function highlightPathByKeywords(pathText: string): { text: string; match: boolean }[] {
+  const kws = multiMode.value
+    ? tags.value.filter((t) => t.length > 0)
+    : [prompt.value.trim()].filter(Boolean);
+  if (kws.length === 0) return [{ text: pathText, match: false }];
+
+  // 为避免正则转义冲突，使用多关键词逐段扫描：每次找到最近的匹配位置
+  const results_: { text: string; match: boolean }[] = [];
+  let pos = 0;
+  const lower = pathText.toLowerCase();
+  const lowerKws = kws.map((k) => k.toLowerCase()).filter(Boolean);
+  while (pos < pathText.length) {
+    // 找第一个命中关键词的起始位置（最小索引）
+    let hitIdx = -1;
+    let hitLen = 0;
+    for (const kw of lowerKws) {
+      if (kw.length === 0) continue;
+      const i = lower.indexOf(kw, pos);
+      if (i === -1) continue;
+      if (hitIdx === -1 || i < hitIdx) {
+        hitIdx = i;
+        hitLen = kw.length;
+      }
+    }
+    if (hitIdx === -1) break;
+    // 非命中前缀
+    if (hitIdx > pos) {
+      results_.push({ text: pathText.slice(pos, hitIdx), match: false });
+    }
+    // 命中段
+    results_.push({ text: pathText.slice(hitIdx, hitIdx + hitLen), match: true });
+    pos = hitIdx + hitLen;
+  }
+  if (pos < pathText.length) {
+    results_.push({ text: pathText.slice(pos), match: false });
+  }
+  if (results_.length === 0) return [{ text: pathText, match: false }];
+  return results_;
+}
+
+/** 把搜索模式 + 标签/关键字写入 URL query（刷新后自动回填）。
+ *  - 单选：?q=foo&scope=current
+ *  - 多选：?q=tag1|tag2|tag3&sm=1&scope=all
+ *  空值会把对应参数从 URL 上移除。*/
+const persistQueryInUrl = (s: SearchScope) => {
   try {
     const next = { ...route.query } as Record<string, any>;
     delete next.q;
     delete next.scope;
-    const trimmed = q.trim();
-    if (trimmed) {
-      next.q = trimmed;
-      if (s !== "current") {
-        next.scope = s;
+    delete next.sm;
+
+    if (multiMode.value) {
+      if (tags.value.length > 0) {
+        next.q = tags.value.join(TAGS_SEP);
+        next.sm = "1";
       }
+    } else {
+      const trimmed = prompt.value.trim();
+      if (trimmed) next.q = trimmed;
     }
+    if (s !== "current") next.scope = s;
+
     router.replace({ path: route.path, query: next }).catch(() => {
       /* ignore NavigationDuplicated / aborted navigations */
     });
@@ -222,22 +386,19 @@ const DEBOUNCE_MS = 250;
 
 // scope 变化自动重搜
 watch(scope, () => {
-  if (prompt.value.trim().length > 0) {
+  if (hasAnythingToSearch()) {
     debouncedSubmit();
   }
 });
 
 // 时间筛选变化时：若正在搜索则重新跑，让搜索结果也遵守时间限制
 watch(timeFilter, () => {
-  if (prompt.value.trim().length > 0) {
+  if (hasAnythingToSearch()) {
     debouncedSubmit();
   }
 });
 
-/** 路由切换（进入子目录 / 返回上一级）时，立即中止本组件侧的搜索任务与防抖等待。
- *  FileListing.vue 那边会触发 fileStore.clearSearch() 退出搜索模式，
- *  但这里的 debounceTimer 若未清理，会在 250ms 后"延迟补发"一次搜索请求，
- *  表现为：切目录后列表"先正常 → 闪一下变回搜索结果"。（经验 1385816） */
+/** 路由切换（进入子目录 / 返回上一级）时，立即中止搜索任务与防抖 */
 watch(
   () => route.path,
   (newPath, oldPath) => {
@@ -252,50 +413,66 @@ watch(
   }
 );
 
-/** 监听 URL 中的 q / scope 变化：
- *   - 浏览器刷新 → onMounted 已经处理
- *   - 用户分享链接点进来 / 其他组件通过 router.push 带 query 跳过来（SPA 内部跳转，组件不复用挂载）→ 这里补触发
- *   - 用户手动通过开发者工具 / 地址栏改 URL query 并按回车（不刷新的 hash 路由也能触发）
- *  关键：如果 URL 里的值和当前 prompt / scope 完全一样，说明是「我自己 persistQueryInUrl 写的」，
- *       直接跳过，避免死循环（搜索→写URL→watch→再搜索）。*/
+// ---- 监听 URL 中的 q / sm / scope：刷新 / 分享链接 / 手动改地址栏 时回填 ----
 watch(
-  () => [route.query.q, route.query.scope] as const,
-  ([newQ, newScope], [oldQ, oldScope]) => {
-    if (newQ === oldQ && newScope === oldScope) return;
-    const qStr = typeof newQ === "string" ? newQ.trim() : "";
-    const currStr = prompt.value.trim();
+  () => [route.query.q, route.query.scope, route.query.sm] as const,
+  ([newQ, newScope, newSm], [oldQ, oldScope, oldSm]) => {
+    if (newQ === oldQ && newScope === oldScope && newSm === oldSm) return;
+
     const sc = typeof newScope === "string" ? newScope : "current";
     const needChangeScope =
       (sc === "current" || sc === "all") && sc !== scope.value;
-    const needChangeQ = qStr !== currStr;
+    if (needChangeScope) scope.value = sc as SearchScope;
 
-    if (!needChangeQ && !needChangeScope) {
-      return; // 与当前一致：是自身刚写入触发的 → 跳过
+    // 用和 onMounted 完全一致的规则解析 wantMulti / tagsArr / singleStr
+    const parsed = parseQueryForMode(newSm, newQ);
+    // wantMulti 为 null 时：不强制改模式，沿用当前 UI 已选择的（不改写 localStorage 偏好）
+    const forceMulti = parsed.wantMulti;
+    const wantMulti: boolean =
+      forceMulti === null ? multiMode.value : forceMulti;
+    const tagsArr: string[] = parsed.wantMulti ? parsed.tagsArr : [];
+    const singleStr: string = parsed.wantMulti ? "" : parsed.singleStr;
+
+    if (forceMulti !== null && forceMulti !== multiMode.value) {
+      multiMode.value = forceMulti;
+      saveModePref();
+    }
+    // 空 q 但 sm key 存在强制多模式：仍切多模式、不自动搜、直接 return
+    if (
+      wantMulti &&
+      tagsArr.length === 0 &&
+      (typeof newSm === "string" || (typeof newQ === "string" && newQ.includes(TAGS_SEP)))
+    ) {
+      tags.value = [];
+      if (!multiMode.value) {
+        multiMode.value = true;
+        saveModePref();
+      }
+      editingTagIdx.value = null;
+      return;
     }
 
-    if (needChangeScope) {
-      scope.value = sc as SearchScope;
+    if (wantMulti) {
+      // 标签完全一致则跳过，避免自己写入后触发死循环
+      const sameAsTags =
+        tags.value.length === tagsArr.length &&
+        tags.value.every((v, i) => v === tagsArr[i]);
+      if (!sameAsTags) {
+        tags.value = tagsArr;
+        editingTagIdx.value = null;
+      }
+    } else {
+      if (prompt.value.trim() !== singleStr) prompt.value = singleStr;
     }
-    if (needChangeQ) {
-      prompt.value = qStr;
-    }
-    if (qStr.length > 0) {
-      /** 用户通过 SPA 内部 router.push 带 q 参数跳过来 / 手动改 URL 回车 / 分享链接
-       *  → 关键字已经「稳定」，不是用户在键盘输入，不需要 250ms debounce，
-       *    直接 doSearch() 立即发起请求。
-       *
-       *    ❗ 不要预先把 fileStore.searchMode 设 true 并把 searchResults 清空，
-       *       理由同 onMounted 中的注释：在搜索请求未返回的这段时间，
-       *       visibleItems=[] 会让主列表显示「这里没有任何文件…」，
-       *       给用户造成错误认知。等到 doSearch 收齐结果再一次性切搜索模式。 */
+
+    const hasQuery = wantMulti ? tagsArr.length > 0 : singleStr.length > 0;
+    if (hasQuery) {
       nextTick(() => {
         maybeOpenDropdown();
+        // URL 来的稳定值：跳过 debounce 直接搜
         doSearch();
       });
-    } else if (!needChangeQ) {
-      /* q 没变仅 scope 变的 case：如果本来就在搜索中，watch(scope) 已经会触发重搜 */
-    } else {
-      // q 变成空 → 等价于清除
+    } else if (!wantMulti && !singleStr) {
       abortLastSearch();
       ongoing.value = false;
       results.value = [];
@@ -306,9 +483,9 @@ watch(
   { flush: "post" }
 );
 
-// 当关键字/结果变化时，自动展开浮层（便于用户看到搜索结果）
+// 当关键字/结果变化时，自动展开浮层
 watch(
-  [prompt, results, ongoing],
+  [prompt, results, ongoing, multiMode, () => tags.value.length],
   () => {
     if (inputFocused.value) {
       maybeOpenDropdown();
@@ -320,12 +497,211 @@ watch(
 const isEmpty = computed(() => results.value.length === 0);
 const text = computed(() => {
   if (ongoing.value) return t("search.searching");
-  return prompt.value === "" ? t("search.typeToSearch") : t("search.noMatches");
+  if (!hasAnythingToSearch()) return t("search.typeToSearch");
+  return t("search.noMatches");
 });
 const filteredResults = computed(() =>
   results.value.slice(0, resultsCount.value)
 );
 
+function hasAnythingToSearch(): boolean {
+  if (multiMode.value) return tags.value.length > 0;
+  return prompt.value.trim().length > 0;
+}
+
+// --------- 模式切换 + 标签操作 ---------
+function saveModePref() {
+  try {
+    localStorage.setItem(MODE_STORAGE_KEY, multiMode.value ? "multi" : "single");
+  } catch {
+    /* private mode etc. */
+  }
+}
+
+function setMode(m: "single" | "multi") {
+  const nowMulti = m === "multi";
+  if (nowMulti === multiMode.value) return;
+  multiMode.value = nowMulti;
+  saveModePref();
+  editingTagIdx.value = null;
+
+  // 切换模式时：把当前已有内容同步一下，避免输入丢失
+  if (nowMulti) {
+    // 单选 -> 多选：如果 prompt 非空，拆成初始标签
+    const t = prompt.value.trim();
+    if (t) {
+      // 先尝试按常见分隔符（逗号、全角逗号、空格、分号）拆，用户也可以单个编辑
+      const initial = splitToKeywords(t).filter(Boolean);
+      tags.value = Array.from(new Set(initial));
+      prompt.value = "";
+      if (tags.value.length > 0) {
+        persistQueryInUrl(scope.value);
+        debouncedSubmit();
+      }
+    }
+  } else {
+    // 多选 -> 单选：如果有标签，把第一个标签回填到 prompt（或者用空格拼接全部显示在输入框）
+    if (tags.value.length > 0) {
+      prompt.value = tags.value.join(" ");
+    }
+    tags.value = [];
+    persistQueryInUrl(scope.value);
+    debouncedSubmit();
+  }
+
+  nextTick(() => input.value?.focus());
+}
+
+/** 把用户输入的一段字符串拆成多个关键词（用于单 -> 多自动转换 / 粘贴多词场景）
+ *  分隔符：逗号 ,  全角逗号 ， 分号 ;  全角分号 ； 换行 \n / \r / \t  连续空白 */
+function splitToKeywords(input: string): string[] {
+  return input
+    .split(/[,，;；\n\r\t]+|\s{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** 统一解析 URL 中的 sm/q → 判定是否多选模式 + 拆出关键词数组 / 单关键词字符串
+ *  规则（按优先级）：
+ *   1) sm="0" / sm="false" → 强制单选
+ *   2) sm key 存在（哪怕是 `sm=` 空串，或者 sm=1 / sm=true / sm=any）→ 多选
+ *   3) sm key 完全缺失，但 q 本身含 TAGS_SEP(|) → 识别为多选 URL 编码形式，按多词拆
+ *   4) 其余 → wantMulti=null 由调用方决定是否沿用 localStorage 偏好
+ *  返回：{ wantMulti: boolean | null; tagsArr: string[]; singleStr: string }
+ *
+ *  ⚠ 放在模块级（非 onMounted 内部），因为 watch route.query 也要引用它。*/
+function parseQueryForMode(
+  rawSm: unknown,
+  rawQ: unknown
+): { wantMulti: boolean | null; tagsArr: string[]; singleStr: string } {
+  const smVal = typeof rawSm === "string" ? rawSm : undefined;
+  const qStr = typeof rawQ === "string" ? rawQ : "";
+
+  // 1) 显式单模式
+  if (smVal === "0" || smVal === "false") {
+    return { wantMulti: false, tagsArr: [], singleStr: qStr.trim() };
+  }
+  // 2) sm key 存在（含空串） → 多选
+  if (typeof smVal !== "undefined") {
+    const tagsArr = Array.from(
+      new Set(qStr.split(TAGS_SEP).map((x) => x.trim()).filter(Boolean))
+    );
+    return { wantMulti: true, tagsArr, singleStr: "" };
+  }
+  // 3) 完全没 sm，但 q 内含 TAGS_SEP(|) → 自动按多词 URL 识别
+  if (qStr.includes(TAGS_SEP)) {
+    const tagsArr = Array.from(
+      new Set(qStr.split(TAGS_SEP).map((x) => x.trim()).filter(Boolean))
+    );
+    return { wantMulti: true, tagsArr, singleStr: "" };
+  }
+  // 4) 其余：返回 null 让调用方自己决定（沿用 localStorage 偏好等）
+  return { wantMulti: null, tagsArr: [], singleStr: qStr.trim() };
+}
+
+function startEditTag(idx: number) {
+  editingTagIdx.value = idx;
+  prompt.value = tags.value[idx] ?? "";
+  nextTick(() => {
+    input.value?.focus();
+    // 光标移到末尾
+    const el = input.value;
+    if (el && typeof el.setSelectionRange === "function") {
+      const len = el.value.length;
+      try { el.setSelectionRange(len, len); } catch { /* ignore */ }
+    }
+  });
+}
+
+function removeTag(idx: number) {
+  tags.value.splice(idx, 1);
+  perKeywordProgress.value.splice(idx, 1);
+  if (editingTagIdx.value === idx) {
+    editingTagIdx.value = null;
+    prompt.value = "";
+  } else if (editingTagIdx.value !== null && editingTagIdx.value > idx) {
+    editingTagIdx.value -= 1;
+  }
+  persistQueryInUrl(scope.value);
+  if (!hasAnythingToSearch()) {
+    abortLastSearch();
+    ongoing.value = false;
+    results.value = [];
+    fileStore.clearSearch();
+    resultsCount.value = 50;
+    return;
+  }
+  debouncedSubmit();
+}
+
+/** 回车（@keyup.enter）时：
+ *  - 多选模式下：若正在编辑某个 tag → 保存编辑；否则若 prompt 非空 → 新增 tag */
+function submitOrAddTag() {
+  const raw = prompt.value.trim();
+  if (!multiMode.value) {
+    // 单选模式：照旧
+    return doSearch();
+  }
+  // 多选模式
+  if (editingTagIdx.value !== null) {
+    // 保存编辑：如果输入为空 -> 视为删除
+    const idx = editingTagIdx.value;
+    if (!raw) {
+      removeTag(idx);
+      return;
+    }
+    // 如果新内容和原 tag 一样，什么都不做
+    if (tags.value[idx] === raw) {
+      editingTagIdx.value = null;
+      prompt.value = "";
+      return;
+    }
+    // 去重：如果已存在同名 tag，删掉当前（等价于合并）
+    const existingIdx = tags.value.indexOf(raw);
+    tags.value[idx] = raw;
+    // 双去重（如果已经有重复，把后面重复的去掉）
+    const seen = new Set<string>();
+    const newTags: string[] = [];
+    const newProg: typeof perKeywordProgress.value = [];
+    for (let i = 0; i < tags.value.length; i++) {
+      const t = tags.value[i];
+      if (seen.has(t)) continue;
+      seen.add(t);
+      newTags.push(t);
+      newProg.push(perKeywordProgress.value[i] ?? { keyword: t, count: 0, partialCount: 0, finished: true });
+    }
+    tags.value = newTags;
+    perKeywordProgress.value = newProg;
+    // 如果 editingTagIdx 因为去重被挤没了，置 null
+    if (editingTagIdx.value >= tags.value.length) editingTagIdx.value = null;
+    const finalEditingIdx = editingTagIdx.value;
+    // 编辑完成后，清除 editing 状态并清空 prompt
+    editingTagIdx.value = null;
+    prompt.value = "";
+    void existingIdx; void finalEditingIdx;
+    persistQueryInUrl(scope.value);
+    debouncedSubmit();
+    return;
+  }
+  // 新增 tag
+  if (!raw) return;
+  // 按分隔符拆：支持用户一次粘贴多个词（"CQG20，ZKG2 80"）一起导入
+  const toAdd = splitToKeywords(raw).filter(Boolean);
+  if (toAdd.length === 0) return;
+  const seen = new Set(tags.value);
+  for (const kw of toAdd) {
+    if (!seen.has(kw)) {
+      seen.add(kw);
+      tags.value.push(kw);
+      perKeywordProgress.value.push({ keyword: kw, count: 0, partialCount: 0, finished: true });
+    }
+  }
+  prompt.value = "";
+  persistQueryInUrl(scope.value);
+  debouncedSubmit();
+}
+
+// --------- 生命周期 ---------
 onMounted(() => {
   if (result.value) {
     result.value.addEventListener("scroll", (event: Event) => {
@@ -338,43 +714,78 @@ onMounted(() => {
   document.addEventListener("click", onDocClick, true);
   document.addEventListener("keydown", onGlobalKeydown, true);
 
-  // 从 URL query params 读取上一次的搜索条件（刷新页面 / 分享链接时自动回填并执行搜索）
+  // 恢复模式偏好
+  try {
+    const savedMode = localStorage.getItem(MODE_STORAGE_KEY);
+    if (savedMode === "multi") {
+      multiMode.value = true;
+    }
+  } catch { /* ignore */ }
+
+  // 从 URL query params 读取上一次的搜索条件
   const savedQ = route.query.q;
   const savedScope = route.query.scope;
+  const savedSm = route.query.sm;
   if (typeof savedScope === "string" && (savedScope === "current" || savedScope === "all")) {
     scope.value = savedScope;
   }
-  if (typeof savedQ === "string" && savedQ.trim().length > 0) {
-      const q = savedQ.trim();
-      prompt.value = q;
-      /** 刷新 / 分享链接打开时：URL 里的关键字不是用户打字，不需要 250ms debounce，
-       *  立即 doSearch() 发请求可以减少 ~250ms 的“空白”等待。
-       *
-       *  ❗ 重要：不要在搜索请求返回前就预先把 fileStore.searchMode 置 true 然后
-       *     searchResults 置空数组。之前这么写的目的是“防止先闪一下全量目录列表”，
-       *     但后果是 onMounted 后 ~250ms(debounce)+流式搜索的等待期内，
-       *     FileListing.visibleItems 会返回 searchResults=[]，主列表整片显示
-       *     「这里没有任何文件…」，严重误导用户以为目录真的空了。
-       *
-       *     现在的策略：搜索请求未回时，fileStore.searchMode 保持 false，
-       *     visibleItems 退回使用 req.items（父目录真实内容），用户会先看到
-       *     当前目录的真实文件——如果目录还没加载完最多显示 loading，而不是
-       *     “空目录”。等 doSearch 流式搜完一次性 fileStore.setSearchResults
-       *     切到搜索模式，searchResults 直接就有完整数据，列表无闪烁原子切换。 */
+  const parsed = parseQueryForMode(savedSm, savedQ);
+  if (parsed.wantMulti === true) {
+    multiMode.value = true;
+    saveModePref();
+    tags.value = parsed.tagsArr;
+    if (tags.value.length > 0) {
       nextTick(() => {
         maybeOpenDropdown();
         doSearch();
       });
+      return;
     }
+  } else if (parsed.wantMulti === false) {
+    multiMode.value = false;
+    saveModePref();
+    if (parsed.singleStr.length > 0) {
+      prompt.value = parsed.singleStr;
+      nextTick(() => {
+        maybeOpenDropdown();
+        doSearch();
+      });
+      return;
+    }
+  }
+  // wantMulti === null：sm / q 没给强信号，按 localStorage 偏好 + q 字面量回退
+  if (parsed.singleStr.length > 0) {
+    if (multiMode.value) {
+      tags.value = Array.from(new Set(splitToKeywords(parsed.singleStr)));
+    } else {
+      prompt.value = parsed.singleStr;
+    }
+    nextTick(() => {
+      maybeOpenDropdown();
+      doSearch();
+    });
+  }
 });
 
 const onDocClick = (event: MouseEvent) => {
-  // 点击到外面（既不在 #search 里，也不在结果浮层里）→ 收起浮层
   const el = document.getElementById("search");
   if (!el) return;
   const target = event.target as Node;
   if (!el.contains(target)) {
     closeDropdown();
+    // 失焦时也取消编辑态，避免下次再点输入框还带着旧的编辑值
+    if (editingTagIdx.value !== null) {
+      // 如果 prompt 有改 -> 保存；否则只取消编辑
+      const idx = editingTagIdx.value;
+      const raw = prompt.value.trim();
+      if (raw && tags.value[idx] !== raw) {
+        tags.value[idx] = raw;
+        persistQueryInUrl(scope.value);
+        debouncedSubmit();
+      }
+      editingTagIdx.value = null;
+      prompt.value = "";
+    }
   }
 };
 
@@ -388,20 +799,16 @@ onBeforeUnmount(() => {
   }
 });
 
-/** 点击搜索框/放大镜 → 只做聚焦，不弹全屏 overlay */
+/** 点击搜索框 → 聚焦并展开浮层 */
 const focusInput = () => {
   nextTick(() => input.value?.focus());
   maybeOpenDropdown();
 };
 
-/** 输入框失焦：先判断点击是否落到浮层上（链接、分段控件、清除按钮等）
- *  是的话就继续保持浮层，否则延迟收起（让链接能先响应 click） */
 const onInputBlur = () => {
   inputFocused.value = false;
-  // 如果浮层里有结果或快捷入口，允许用户继续操作，下一次 doc 点击外再收起
 };
 
-/** 有内容或类型快捷入口时才展开浮层 */
 const maybeOpenDropdown = () => {
   showDropdown.value = true;
 };
@@ -410,18 +817,37 @@ const closeDropdown = () => {
   showDropdown.value = false;
 };
 
-/** 键盘 Esc：两段式（对齐 Spotlight） */
+/** 键盘 Esc / Backspace（多选且 prompt 空、没在编辑 -> 把最后一个 tag 回拉到编辑） */
 const keydown = (event: KeyboardEvent) => {
   if (event.key === "Escape") {
     event.preventDefault();
     event.stopPropagation();
-    const hasContent =
-      prompt.value.length > 0 || ongoing.value || results.value.length > 0;
-    if (hasContent) {
+    if (hasAnythingToClear) {
       clearPrompt();
     } else {
       closeDropdown();
       input.value?.blur();
+    }
+    return;
+  }
+  // 多选模式下 Backspace：若输入框为空且有 tags，把最后一个 tag 拉回编辑
+  if (multiMode.value && event.key === "Backspace" && !event.defaultPrevented) {
+    if (prompt.value.length === 0 && editingTagIdx.value === null && tags.value.length > 0) {
+      event.preventDefault();
+      startEditTag(tags.value.length - 1);
+    }
+  }
+  // 多选模式下：逗号 / 分号（中英）也直接触发"新增标签"，用户不用非要按回车
+  if (multiMode.value && editingTagIdx.value === null && !event.ctrlKey && !event.metaKey) {
+    const keys: Record<string, boolean> = {
+      ",": true,
+      "，": true,
+      ";": true,
+      "；": true,
+    };
+    if (keys[event.key] && prompt.value.trim().length > 0) {
+      event.preventDefault();
+      submitOrAddTag();
     }
   }
 };
@@ -432,9 +858,7 @@ const onGlobalKeydown = (event: KeyboardEvent) => {
   if (event.defaultPrevented) return;
   event.preventDefault();
   event.stopPropagation();
-  const hasContent =
-    prompt.value.length > 0 || ongoing.value || results.value.length > 0;
-  if (hasContent) {
+  if (hasAnythingToClear) {
     clearPrompt();
   } else {
     closeDropdown();
@@ -443,6 +867,10 @@ const onGlobalKeydown = (event: KeyboardEvent) => {
 };
 
 const onInput = () => {
+  if (multiMode.value && editingTagIdx.value !== null) {
+    // 编辑某个 tag 时：不触发 debounced 搜索（等回车保存时再搜）
+    return;
+  }
   debouncedSubmit();
 };
 
@@ -454,6 +882,9 @@ const init = (s: string) => {
 
 const clearPrompt = () => {
   prompt.value = "";
+  tags.value = [];
+  perKeywordProgress.value = [];
+  editingTagIdx.value = null;
   abortLastSearch();
   ongoing.value = false;
   results.value = [];
@@ -463,7 +894,7 @@ const clearPrompt = () => {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
   }
-  persistQueryInUrl("", scope.value);
+  persistQueryInUrl(scope.value);
   nextTick(() => input.value?.focus());
 };
 
@@ -481,12 +912,11 @@ const debouncedSubmit = () => {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
   }
-  const q = prompt.value.trim();
-  if (!q) {
+  if (!hasAnythingToSearch()) {
     results.value = [];
     ongoing.value = false;
     fileStore.clearSearch();
-    persistQueryInUrl("", scope.value);
+    persistQueryInUrl(scope.value);
     return;
   }
   debounceTimer = window.setTimeout(() => {
@@ -500,16 +930,23 @@ const setScope = (s: SearchScope) => {
   nextTick(() => input.value?.focus());
 };
 
+// ------ 核心搜索入口 ------
 const doSearch = async () => {
+  if (multiMode.value) {
+    return doMultiSearch();
+  }
+  return doSingleSearch();
+};
+
+const doSingleSearch = async () => {
   const q = prompt.value.trim();
   if (!q) {
     results.value = [];
     fileStore.clearSearch();
-    persistQueryInUrl("", scope.value);
+    persistQueryInUrl(scope.value);
     return;
   }
-  // 写入 URL：刷新 / 分享链接后能自动回填并重新搜索
-  persistQueryInUrl(q, scope.value);
+  persistQueryInUrl(scope.value);
 
   let path: string;
   if (scope.value === "all") {
@@ -521,21 +958,11 @@ const doSearch = async () => {
     }
   }
 
-  // ① 先中止上一次还在进行的搜索（否则旧结果晚回来可能覆盖新结果）
   abortLastSearch();
   searchAbortController = new AbortController();
-
-  // ② 标记"正在搜索"（显示 spinner 与「搜索中」文案）
-  // ❗ 注意：此处**故意不再做**「results.value = []」和「fileStore.setSearchResults(q, [])」。
-  //    之前的实现在请求开始时先把旧结果清空 → 主列表区域整片先白一下 →
-  //    流式搜索回调一条一条 push 回来，列表从空一行一行"逐行显现" → 用户感知为"文件列表闪烁"，
-  //    同时浮层 results.length 在 0/N 之间抖动导致浮层高度反复开合 → 输入框被挤得轻微抖动闪烁。
-  //    修复策略：搜索过程中保持旧结果显示（视觉稳定），把新命中暂存在本地临时数组，
-  //    等流式搜索全部收齐后「一次性原子替换」 results / searchResults（经验 1385816：只触发一次状态变更 = 只重渲染一次，零闪烁）。
   ongoing.value = true;
 
   const batchItems: any[] = [];
-
   try {
     const r = resolveTimeFilter(timeFilter.value);
     const extra = {
@@ -547,24 +974,96 @@ const doSearch = async () => {
       prompt.value,
       searchAbortController.signal,
       (item) => {
-        // 仅累积到本地，不写响应式 store，不在中途触发视图更新
         batchItems.push(item);
       },
       extra
     );
-
-    // 「一次性原子替换」：流式搜索完成，把全部命中一次性写入。
-    // 避免多次 set / push 造成逐帧重绘（闪烁 / 打字机效果）。
     results.value = batchItems;
     fileStore.setSearchResults(q, batchItems as unknown as ResourceItem[]);
   } catch (error: any) {
-    if (error instanceof StatusError && error.is_canceled) {
-      // 被 AbortController 取消（用户继续输入 / 切目录），保留旧结果即可
-      return;
-    }
+    if (error instanceof StatusError && error.is_canceled) return;
     $showError(error);
   } finally {
     ongoing.value = false;
+  }
+};
+
+const doMultiSearch = async () => {
+  // 先去重（startEditTag / removeTag 里也做过，但这里再做一次以防御并发）
+  const uniq: string[] = [];
+  const seen_ = new Set<string>();
+  for (const t of tags.value) {
+    const tt = t.trim();
+    if (!tt || seen_.has(tt)) continue;
+    seen_.add(tt);
+    uniq.push(tt);
+  }
+  if (!seen_.size) {
+    results.value = [];
+    fileStore.clearSearch();
+    persistQueryInUrl(scope.value);
+    return;
+  }
+  tags.value = uniq;
+  perKeywordProgress.value = uniq.map((kw) => ({
+    keyword: kw,
+    count: 0,
+    partialCount: 0,
+    finished: false,
+  }));
+  persistQueryInUrl(scope.value);
+
+  let path: string;
+  if (scope.value === "all") {
+    path = "/";
+  } else {
+    path = route.path;
+    if (!fileStore.isListing) {
+      path = url.removeLastDir(path) + "/";
+    }
+  }
+
+  abortLastSearch();
+  searchAbortController = new AbortController();
+  ongoing.value = true;
+
+  const batchItems: any[] = [];
+  try {
+    const r = resolveTimeFilter(timeFilter.value);
+    const extra = {
+      modified_after: r.modifiedAfter,
+      modified_before: r.modifiedBefore,
+    };
+    await searchMulti(
+      path,
+      uniq,
+      searchAbortController.signal,
+      (item) => {
+        batchItems.push(item);
+      },
+      extra,
+      (prog) => {
+        const p = perKeywordProgress.value[prog.queryIdx];
+        if (!p) return;
+        p.partialCount = prog.partialCount;
+        if (prog.finished) {
+          p.finished = true;
+        }
+      }
+    );
+    // 每个关键词最终计数（成功的）：从结果集再数一遍最准
+    // 但 searchMulti 返回值里 perKeyword 已经给我们准备好了，这里同步显示
+    // （searchMulti 的 perKeyword 计数 = 去重后“真正贡献给最终集合”的条目数，所以最贴合用户预期）
+    // 注意：这里我们直接用 batchItems 来渲染，
+    // perKeyword 的 count 就用 searchMulti 返回结果去回填。
+    results.value = batchItems;
+    fileStore.setSearchResults(uniq, batchItems as unknown as ResourceItem[]);
+  } catch (error: any) {
+    if (error instanceof StatusError && error.is_canceled) return;
+    $showError(error);
+  } finally {
+    ongoing.value = false;
+    perKeywordProgress.value = perKeywordProgress.value.map((p) => ({ ...p, finished: true }));
   }
 };
 
@@ -574,12 +1073,210 @@ const submit = async (event?: Event) => {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
   }
-  return doSearch();
+  return submitOrAddTag();
 };
 
-/** 用户点结果链接 → 先收浮层再跳转（保持 Finder 利落感） */
+/** 用户点结果链接 → 先收浮层再跳转 */
 const goResult = (s: any) => {
   closeDropdown();
   router.push(s.url);
 };
 </script>
+
+<style scoped>
+/* ---- 搜索控件 + 模式切换 + 关键词标签：三兄弟同一行横向排列 ----
+   #input (flex:1) | finder-segmented (flex:none 8px gap) | search-tags (flex:0 1 40% 右末) */
+.search-control-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: nowrap;
+  /* 单行，不换行，标签多时允许横向 scroll，避免把行高撑大 */
+  min-height: 32px;
+}
+/* 搜索框本身占主要宽度（自适应缩小放大），模式按钮 / 标签行 flex:none 贴在其右侧 */
+.search-control-row #input {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+.finder-segmented--mode {
+  flex: none;
+  display: inline-flex;
+  background: var(--surface-raised, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  align-self: center;
+}
+.finder-segmented--mode button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--theme-text, #333);
+  transition: background 0.15s ease;
+}
+.finder-segmented--mode button .material-icons {
+  font-size: 16px;
+  opacity: 0.8;
+}
+.finder-segmented--mode button:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.06));
+}
+.finder-segmented--mode button.active {
+  background: var(--theme-color, #1976d2);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.finder-segmented--mode button.active .material-icons {
+  opacity: 1;
+}
+.mode-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  color: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  margin-left: 2px;
+}
+
+/* ---- 标签行（现在和搜索框/模式同一行，在「切换菜单最右边」）---- */
+.search-tags {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  /* 不允许换行，单行显示；标签多时横向滚动 */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  /* 标签占用不超过行宽的 45%，避免挤压搜索框/模式切换 */
+  flex: 0 1 45%;
+  max-width: 45%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 细滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+.search-tags::-webkit-scrollbar {
+  height: 6px;
+}
+.search-tags::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+/* 多选刚切进来 / 没聚焦 / 没输入 / 没标签时：完全隐藏，不占用空间 */
+.search-tags.is-empty {
+  display: none;
+}
+.search-tag {
+  display: inline-flex;
+  align-items: center;
+  background: var(--theme-color, #1976d2);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 4px 1px 10px;
+  font-size: 12px;
+  line-height: 22px;
+  max-width: 200px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: background 0.12s ease, transform 0.08s ease;
+  /* 防止标签本身被横向滚动挤扁（作为滚动容器内部 item，不 shrink）*/
+  flex: 0 0 auto;
+}
+.search-tag:hover {
+  background: var(--theme-color-dark, #1565c0);
+}
+.search-tag.editing {
+  background: var(--theme-color-dark, #1565c0);
+  outline: 2px dashed rgba(255, 255, 255, 0.5);
+  outline-offset: -2px;
+}
+.search-tag.searching {
+  background: linear-gradient(
+    135deg,
+    var(--theme-color, #1976d2),
+    var(--theme-color-light, #42a5f5)
+  );
+}
+.search-tag__text {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+}
+.search-tag__count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  flex: none;
+}
+.search-tag__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+.search-tag__spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.search-tag__spinner .material-icons {
+  font-size: 14px;
+  animation: spin 900ms linear infinite;
+}
+.search-tag__remove {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-left: 4px;
+  color: #fff;
+  opacity: 0.8;
+}
+.search-tag__remove:hover {
+  background: rgba(255, 255, 255, 0.22);
+  opacity: 1;
+}
+.search-tag__remove .material-icons {
+  font-size: 15px;
+}
+
+/* ---- 输入框 ---- */
+#input.multi {
+  /* 多选模式下输入框更扁，给标签留空间 */
+  min-height: 32px;
+}
+.finder-toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+</style>

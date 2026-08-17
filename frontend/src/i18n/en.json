@@ -20,6 +20,7 @@
     "more": "More",
     "move": "Move",
     "moveFile": "Move file",
+    "mergePdf": "Merge PDF",
     "new": "New",
     "next": "Next",
     "ok": "OK",
@@ -188,7 +189,17 @@
     "skip": "Skip",
     "forbiddenError": "Forbidden Error",
     "currentPassword": "Your password",
-    "currentPasswordMessage": "Enter your password to validate this action."
+    "currentPasswordMessage": "Enter your password to validate this action.",
+    "mergePdf": "Merge PDF",
+    "mergePdfMessage": "{count} PDFs selected. Use arrows to reorder:",
+    "mergePdfMoveUp": "Move up",
+    "mergePdfMoveDown": "Move down",
+    "mergePdfMerging": "Merging...",
+    "mergePdfProgress": "Processing {current}/{total}: {name}",
+    "mergePdfFetchFail": "Failed to download {name} ({status})",
+    "mergePdfInvalid": "{name} is not a valid PDF after download (Content-Type: {type}). The file may be protected, corrupted, or the path is wrong.",
+    "mergePdfSaving": "Generating merged PDF...",
+    "mergePdfSuccess": "PDFs merged and downloaded successfully."
   },
   "search": {
     "images": "Images",
@@ -204,7 +215,13 @@
     "foundCount": "{count} results found",
     "typeToSearch": "Type to search...",
     "types": "Types",
-    "video": "Video"
+    "video": "Video",
+    "modeLabel": "Search mode",
+    "modeSingle": "Single",
+    "modeMulti": "Multi",
+    "editTagTitle": "Click to edit (Enter saves; Esc/empty = delete)",
+    "multiPlaceholder": "Type a keyword and press Enter; comma/semicolon are also separators",
+    "multiSearching": "Searching… {done}/{total}"
   },
   "settings": {
     "aceEditorTheme": "Ace editor theme",

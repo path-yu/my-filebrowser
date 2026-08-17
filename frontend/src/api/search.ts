@@ -81,6 +81,7 @@ export default async function search(
   callback: (item: ResourceItem) => void,
   extra?: SearchQueryParams
 ) {
+  // existing logic unchanged
   base = removePrefix(base);
   query = encodeURIComponent(query);
 
@@ -200,5 +201,110 @@ export default async function search(
       throw new StatusError("000 No connection", 0, true);
     }
     throw e;
+  }
+}
+
+/**
+ * 多关键词并发搜索：
+ *   - 对 queries 里的每个关键词并发调用 search()
+ *   - 按 item.url 去重（同一个文件命中多个关键词只保留一份）
+ *   - 合并后按原顺序：保持每个关键词内部流式顺序，关键词之间按传入顺序拼接
+ *     （等价于 SQL UNION ALL + DISTINCT 的顺序一致性语义）
+ *   - onProgress(queryIdx, total, keyword, partial) 可选进度回调
+ *   - signal 用同一个 AbortController：任一关键词被取消则整体取消（但注意每个
+ *     内部 search 自己也会抛 StatusError(Abort)，这里 catch 住被取消的关键词后继续完成剩下）
+ */
+export async function searchMulti(
+  base: string,
+  queries: string[],
+  signal: AbortSignal,
+  callback: (item: ResourceItem) => void,
+  extra?: SearchQueryParams,
+  onProgress?: (info: {
+    queryIdx: number;
+    total: number;
+    keyword: string;
+    finished: boolean;
+    partialCount: number;
+  }) => void
+): Promise<{ totalUnique: number; perKeyword: { keyword: string; count: number }[] }> {
+  const seen = new Set<string>();
+  const perKeyword: { keyword: string; count: number }[] = queries.map((q) => ({
+    keyword: q,
+    count: 0,
+  }));
+
+  // 对每个关键词创建一个子 AbortController，方便单个关键词失败时不影响其他
+  // （顶层 signal 触发时仍会同时取消所有子控制器）
+  const childControllers = queries.map(() => new AbortController());
+  const onAbort = () => {
+    childControllers.forEach((c) => {
+      try { c.abort(); } catch { /* ignore */ }
+    });
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    // 并发发起 N 个搜索，每个搜索内部流式积累 → 本地用数组收集
+    const promises = queries.map(async (keyword, idx) => {
+      const localItems: ResourceItem[] = [];
+      try {
+        await search(
+          base,
+          keyword,
+          childControllers[idx].signal,
+          (item) => {
+            localItems.push(item);
+            onProgress?.({
+              queryIdx: idx,
+              total: queries.length,
+              keyword,
+              finished: false,
+              partialCount: localItems.length,
+            });
+          },
+          extra
+        );
+      } catch (e: any) {
+        // 被取消（用户改了输入/切换标签）：不是错误，跳过这个关键词的结果，
+        // 同时已经收集到的 localItems 也会被丢弃（保证一致性）。
+        if (e instanceof StatusError && e.is_canceled) {
+          return [] as ResourceItem[];
+        }
+        // 其他错误：也吞掉（否则 Promise.all 会整体 reject），但把 keyword 计数置 -1 方便调用方识别
+        perKeyword[idx].count = -1;
+        console.error(`[searchMulti] keyword "${keyword}" failed: ${e?.message || e}`);
+        return [] as ResourceItem[];
+      }
+      onProgress?.({
+        queryIdx: idx,
+        total: queries.length,
+        keyword,
+        finished: true,
+        partialCount: localItems.length,
+      });
+      return localItems;
+    });
+
+    const allBatches = await Promise.all(promises);
+
+    // 按关键词顺序 UNION ALL，然后按 url DISTINCT，维持稳定顺序。
+    for (let i = 0; i < allBatches.length; i++) {
+      const batch = allBatches[i];
+      if (!batch) continue;
+      let kept = 0;
+      for (const it of batch) {
+        const key = it.url || `${it.path}|${it.name}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        kept++;
+        callback(it);
+      }
+      if (perKeyword[i].count !== -1) perKeyword[i].count = kept;
+    }
+
+    return { totalUnique: seen.size, perKeyword };
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
 }

@@ -10,7 +10,8 @@ export const useFileStore = defineStore("file", {
     isFiles: boolean;
     preselect: string | null;
     searchMode: boolean;
-    searchQuery: string;
+    /** 单选模式：单字符串；多选模式：string[]（每个关键词）*/
+    searchQuery: string | string[];
     searchResults: ResourceItem[];
     productCodes: Record<string, string>;
   } => ({
@@ -36,6 +37,24 @@ export const useFileStore = defineStore("file", {
         return state.searchResults;
       }
       return state.req?.items ?? [];
+    },
+    /**
+     * 根据 searchMode 自动选择正确的数据源获取单个 item。
+     * 搜索模式下 selected 存的是 searchResults 的索引，不能直接去 req.items 查，否则会索引错位。
+     * 所有 prompts 组件都应通过该方式（或 selectedItems）访问选中项。
+     */
+    visibleItemAt: (state) => (idx: number): ResourceItem | undefined => {
+      const list: ResourceItem[] = state.searchMode
+        ? state.searchResults
+        : state.req?.items ?? [];
+      return list[idx];
+    },
+    /** 返回当前已选中的 item 对象数组（自动兼容 searchMode）。 */
+    selectedItems(): ResourceItem[] {
+      const self = this as any;
+      return self.selected
+        .map((i: number) => self.visibleItemAt(i))
+        .filter((it: ResourceItem | undefined) => !!it);
     },
     visibleNumDirs(): number {
       return this.visibleItems.filter((i: ResourceItem) => i.isDir).length;
@@ -67,8 +86,8 @@ export const useFileStore = defineStore("file", {
       if (i === -1) return;
       this.selected.splice(i, 1);
     },
-    /** 进入搜索模式，清空结果；之后用 appendSearchResult 追加 */
-    setSearchResults(query: string, results: ResourceItem[]) {
+    /** 进入搜索模式，清空结果；query 可能是单关键词（单选模式）或关键词数组（多选模式） */
+    setSearchResults(query: string | string[], results: ResourceItem[]) {
       this.searchQuery = query;
       this.searchMode = true;
       this.selected = [];

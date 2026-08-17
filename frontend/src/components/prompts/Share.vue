@@ -168,6 +168,7 @@ export default {
       "selected",
       "selectedCount",
       "isListing",
+      "visibleItemAt",
     ]),
     url() {
       if (!this.isListing) {
@@ -179,7 +180,7 @@ export default {
         return;
       }
 
-      return this.req.items[this.selected[0]].url;
+      return this.visibleItemAt(this.selected[0])?.url;
     },
     unitOptions() {
       return [

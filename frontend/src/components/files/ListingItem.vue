@@ -131,10 +131,14 @@ const isDraggable = computed(
 
 /** 搜索关键词分片渲染：
  *  当 Pinia 的 searchQuery 有值时按关键词分片；关键词为空时直接返回纯文本段。
- *  采用"分片渲染"（非 v-html）避免文件名里的 HTML 字符（如 &<>）造成 XSS。 */
-const nameSegments = computed(() =>
-  splitByKeyword(props.name, fileStore.searchQuery)
-);
+ *  采用"分片渲染"（非 v-html）避免文件名里的 HTML 字符（如 &<>）造成 XSS。
+ *  多选模式（searchQuery 为 string[]）时用空格拼接关键词，splitByKeyword 内部会按
+ *  空白/分隔符拆成多个关键词进行 OR 高亮。*/
+const nameSegments = computed(() => {
+  const q = fileStore.searchQuery;
+  const kw = Array.isArray(q) ? q.join(" ") : q ?? "";
+  return splitByKeyword(props.name, kw);
+});
 
 const canDrop = computed(() => {
   if (!props.isDir || props.readOnly) return false;

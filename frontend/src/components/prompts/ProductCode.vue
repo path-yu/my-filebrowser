@@ -81,6 +81,7 @@ export default {
       "selected",
       "selectedCount",
       "isListing",
+      "visibleItemAt",
     ]),
     ...mapWritableState(useFileStore, ["reload"]),
     target() {
@@ -90,7 +91,7 @@ export default {
       if (this.selectedCount !== 1) {
         return null;
       }
-      return this.req?.items[this.selected[0]] ?? null;
+      return this.visibleItemAt(this.selected[0]) ?? null;
     },
     fileName() {
       return this.target?.name ?? "";

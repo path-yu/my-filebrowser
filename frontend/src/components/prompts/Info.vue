@@ -116,6 +116,7 @@ export default {
       "selected",
       "selectedCount",
       "isListing",
+      "visibleItemAt",
     ]),
     humanSize: function () {
       if (this.selectedCount === 0 || !this.isListing) {
@@ -125,7 +126,8 @@ export default {
       let sum = 0;
 
       for (const selected of this.selected) {
-        sum += this.req.items[selected].size;
+        const it = this.visibleItemAt(selected);
+        if (it) sum += it.size;
       }
 
       return filesize(sum);
@@ -135,7 +137,7 @@ export default {
         return dayjs(this.req.modified).fromNow();
       }
 
-      return dayjs(this.req.items[this.selected[0]].modified).fromNow();
+      return dayjs(this.visibleItemAt(this.selected[0])?.modified).fromNow();
     },
     modTime: function () {
       if (this.selectedCount === 0) {
@@ -143,25 +145,25 @@ export default {
       }
 
       return new Date(
-        Date.parse(this.req.items[this.selected[0]].modified)
+        Date.parse(this.visibleItemAt(this.selected[0])?.modified)
       ).toLocaleString();
     },
     name: function () {
       return this.selectedCount === 0
         ? this.req.name
-        : this.req.items[this.selected[0]].name;
+        : this.visibleItemAt(this.selected[0])?.name ?? "";
     },
     dir: function () {
       return (
         this.selectedCount > 1 ||
         (this.selectedCount === 0
           ? this.req.isDir
-          : this.req.items[this.selected[0]].isDir)
+          : this.visibleItemAt(this.selected[0])?.isDir)
       );
     },
     resolution: function () {
       if (this.selectedCount === 1) {
-        const selectedItem = this.req.items[this.selected[0]];
+        const selectedItem = this.visibleItemAt(this.selected[0]);
         if (selectedItem && selectedItem.type === "image") {
           return selectedItem.resolution;
         }
@@ -179,7 +181,7 @@ export default {
       let link;
 
       if (this.selectedCount) {
-        link = this.req.items[this.selected[0]].url;
+        link = this.visibleItemAt(this.selected[0])?.url ?? "";
       } else {
         link = this.$route.path;
       }

@@ -48,6 +48,7 @@ export default {
       "selectedCount",
       "req",
       "selected",
+      "visibleItemAt",
     ]),
     ...mapState(useLayoutStore, ["currentPrompt"]),
     ...mapWritableState(useFileStore, ["reload", "preselect"]),
@@ -75,14 +76,15 @@ export default {
 
         const promises = [];
         for (const index of this.selected) {
-          promises.push(api.remove(this.req.items[index].url));
+          const it = this.visibleItemAt(index);
+          if (it) promises.push(api.remove(it.url));
         }
 
         await Promise.all(promises);
         buttons.success("delete");
 
-        const nearbyItem =
-          this.req.items[Math.max(0, Math.min(this.selected) - 1)];
+        const minSel = Math.min(...this.selected);
+        const nearbyItem = this.visibleItemAt(Math.max(0, minSel - 1));
 
         this.preselect = nearbyItem?.path;
 

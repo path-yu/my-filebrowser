@@ -66,6 +66,7 @@ export default {
       "selected",
       "selectedCount",
       "isListing",
+      "visibleItemAt",
     ]),
     ...mapWritableState(useFileStore, ["reload", "preselect"]),
     oldName() {
@@ -78,7 +79,7 @@ export default {
         return "";
       }
 
-      return this.req.items[this.selected[0]].name;
+      return this.visibleItemAt(this.selected[0])?.name ?? "";
     },
   },
   methods: {
@@ -96,7 +97,7 @@ export default {
       if (!this.isListing) {
         oldLink = this.req.url;
       } else {
-        oldLink = this.req.items[this.selected[0]].url;
+        oldLink = this.visibleItemAt(this.selected[0])?.url ?? "";
       }
 
       newLink =
